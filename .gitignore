@@ -1,0 +1,14 @@
+node_modules
+.env
+.env.test
+dist
+files
+.cursor
+todo.md
+*.gz
+.DS_Store
+package.lock.json
+yarn-error.log
+assets/temp
+package-lock.json
+SYSTEM_DESIGN.md

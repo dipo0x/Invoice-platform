@@ -23,9 +23,11 @@ export class TokenService {
   }
 
   static generateRefreshToken(userId: string): string {
-    return jwt.sign({ id: userId }, config.JWT_REFRESH_SECRET, {
-      expiresIn: this.REFRESH_TOKEN_EXPIRY_SECONDS,
-    });
+    return jwt.sign(
+      { id: userId, jti: crypto.randomUUID() },
+      config.JWT_REFRESH_SECRET,
+      { expiresIn: this.REFRESH_TOKEN_EXPIRY_SECONDS },
+    );
   }
 
   static verifyAccessToken(token: string): AccessTokenPayload {

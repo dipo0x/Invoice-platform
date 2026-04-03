@@ -1,5 +1,5 @@
 import type { FastifyInstance } from "fastify";
-import mongoose from "mongoose";
+import { database } from "../config/database.config.js";
 import { redis } from "../config/redis.config.js";
 
 interface DependencyStatus {
@@ -16,12 +16,8 @@ interface HealthResponse {
 
 async function checkMongo(): Promise<DependencyStatus> {
   const start = Date.now();
-  try {
-    await mongoose.connection.db!.admin().ping();
-    return { status: "up", latencyMs: Date.now() - start };
-  } catch {
-    return { status: "down", latencyMs: Date.now() - start };
-  }
+  const isUp = await database.ping();
+  return { status: isUp ? "up" : "down", latencyMs: Date.now() - start };
 }
 
 async function checkRedis(): Promise<DependencyStatus> {
@@ -45,7 +41,6 @@ function resolveOverallStatus(
 }
 
 export async function healthPlugin(fastify: FastifyInstance): Promise<void> {
-  // Liveness — is the service functioning?
   fastify.get("/health", async (_request, reply) => {
     const [mongo, redisStatus] = await Promise.all([
       checkMongo(),
@@ -65,10 +60,9 @@ export async function healthPlugin(fastify: FastifyInstance): Promise<void> {
     return reply.status(statusCode).send(response);
   });
 
-  // Readiness — can the service accept traffic right now?
   fastify.get("/ready", async (_request, reply) => {
-    const mongoReady = mongoose.connection.readyState === 1;
-    const redisReady = redis.status === "ready";
+    const mongoReady = database.isConnected;
+    const redisReady = redis.isReady;
 
     if (mongoReady && redisReady) {
       return reply.status(200).send({ status: "ready" });

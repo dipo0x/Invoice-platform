@@ -2,38 +2,54 @@ import mongoose from "mongoose";
 import { config } from "./index.config.js";
 import { logger } from "../observability/logger.js";
 
-export async function connectDatabase(): Promise<void> {
-  mongoose.connection.on("connected", () => {
-    logger.info("MongoDB connected");
-  });
+export class Database {
+  private uri: string;
 
-  mongoose.connection.on("disconnected", () => {
-    logger.warn("MongoDB disconnected");
-  });
+  constructor(uri: string) {
+    this.uri = uri;
+  }
 
-  mongoose.connection.on("error", (err) => {
-    logger.error({ err }, "MongoDB connection error");
-  });
+  async connect(): Promise<void> {
+    mongoose.connection.on("connected", () => {
+      logger.info("MongoDB connected");
+    });
 
-  await mongoose.connect(config.MONGODB_URI, {
-    maxPoolSize: 10,
-    serverSelectionTimeoutMS: 5000,
-    socketTimeoutMS: 45000,
-  });
+    mongoose.connection.on("disconnected", () => {
+      logger.warn("MongoDB disconnected");
+    });
+
+    mongoose.connection.on("error", (err) => {
+      logger.error({ err }, "MongoDB connection error");
+    });
+
+    await mongoose.connect(this.uri, {
+      maxPoolSize: 10,
+      serverSelectionTimeoutMS: 5000,
+      socketTimeoutMS: 45000,
+    });
+  }
+
+  async disconnect(): Promise<void> {
+    await mongoose.disconnect();
+    logger.info("MongoDB connection closed");
+  }
+
+  get isConnected(): boolean {
+    return mongoose.connection.readyState === 1;
+  }
+
+  get readyState(): number {
+    return mongoose.connection.readyState;
+  }
+
+  async ping(): Promise<boolean> {
+    try {
+      await mongoose.connection.db!.admin().ping();
+      return true;
+    } catch {
+      return false;
+    }
+  }
 }
 
-export async function disconnectDatabase(): Promise<void> {
-  await mongoose.disconnect();
-  logger.info("MongoDB connection closed");
-}
-
-export function getDatabaseStatus(): {
-  status: "connected" | "disconnected";
-  readyState: number;
-} {
-  const readyState = mongoose.connection.readyState;
-  return {
-    status: readyState === 1 ? "connected" : "disconnected",
-    readyState,
-  };
-}
+export const database = new Database(config.MONGODB_URI);

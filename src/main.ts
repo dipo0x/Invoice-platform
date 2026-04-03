@@ -1,10 +1,7 @@
 import { config } from "./config/index.config.js";
-import {
-  connectDatabase,
-  disconnectDatabase,
-} from "./config/database.config.js";
-import { connectRedis, disconnectRedis } from "./config/redis.config.js";
-import { connectBullRedis, disconnectBullRedis } from "./queues/connection.js";
+import { database } from "./config/database.config.js";
+import { redis } from "./config/redis.config.js";
+import { bullRedis } from "./queues/connection.js";
 import { logger } from "./observability/logger.js";
 import { buildApp } from "./app.js";
 
@@ -13,13 +10,16 @@ const SHUTDOWN_TIMEOUT_MS = 15_000;
 async function main(): Promise<void> {
   const app = buildApp();
 
-  await connectDatabase();
-  await connectRedis();
-  await connectBullRedis();
+  // Connect to external services
+  await database.connect();
+  await redis.connect();
+  await bullRedis.connect();
 
+  // Start HTTP server
   await app.listen({ port: config.PORT, host: "0.0.0.0" });
   logger.info(`Server listening on port ${config.PORT}`);
 
+  // --- Graceful Shutdown ---
   let isShuttingDown = false;
 
   async function shutdown(signal: string): Promise<void> {
@@ -41,13 +41,13 @@ async function main(): Promise<void> {
       await app.close();
 
       logger.info("Closing BullMQ Redis");
-      await disconnectBullRedis();
+      await bullRedis.disconnect();
 
       logger.info("Closing Redis");
-      await disconnectRedis();
+      await redis.disconnect();
 
       logger.info("Closing MongoDB");
-      await disconnectDatabase();
+      await database.disconnect();
 
       logger.info("Shutdown complete");
       clearTimeout(forceExit);

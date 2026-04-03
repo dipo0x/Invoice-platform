@@ -1,13 +1,11 @@
 import {
   prop,
   getModelForClass,
-  index,
   modelOptions,
 } from "@typegoose/typegoose";
 import type { DocumentType } from "@typegoose/typegoose";
 
 @modelOptions({ schemaOptions: { timestamps: true } })
-@index({ email: 1 })
 class UserClass {
   @prop({ required: true, unique: true, lowercase: true, trim: true })
   public email!: string;

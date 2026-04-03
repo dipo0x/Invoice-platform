@@ -1,8 +1,10 @@
-import { prop, getModelForClass, index, modelOptions, Ref } from "@typegoose/typegoose";
+import { prop, getModelForClass, index, modelOptions, Ref, Severity } from "@typegoose/typegoose";
 import { UserClass } from "../auth/auth.model.js";
 
-@modelOptions({ schemaOptions: { timestamps: true } })
-@index({ slug: 1 })
+@modelOptions({
+  schemaOptions: { timestamps: true },
+  options: { allowMixed: Severity.ALLOW },
+})
 @index({ ownerId: 1 })
 class OrganizationClass {
   @prop({ required: true, trim: true })

@@ -52,4 +52,18 @@ export class TokenService {
     const key = `${this.REFRESH_KEY_PREFIX}:${userId}:${token}`;
     await redis.del(key);
   }
+
+  /** Atomically revoke old token and store new token in a Redis pipeline */
+  static async rotateRefreshToken(
+    userId: string,
+    oldToken: string,
+    newToken: string,
+  ): Promise<void> {
+    const oldKey = `${this.REFRESH_KEY_PREFIX}:${userId}:${oldToken}`;
+    const newKey = `${this.REFRESH_KEY_PREFIX}:${userId}:${newToken}`;
+    const pipeline = redis.raw.pipeline();
+    pipeline.del(oldKey);
+    pipeline.set(newKey, "1", "EX", this.REFRESH_TOKEN_EXPIRY_SECONDS);
+    await pipeline.exec();
+  }
 }

@@ -59,9 +59,6 @@ export class AuthService {
       return { error: "Refresh token has been revoked", status: 401 };
     }
 
-    // Rotate: revoke old, issue new
-    await TokenService.revokeRefreshToken(payload.id, refreshToken);
-
     const user = await User.findById(payload.id);
     if (!user) {
       return { error: "User not found", status: 401 };
@@ -70,7 +67,9 @@ export class AuthService {
     const userId = user.id as string;
     const newAccessToken = TokenService.generateAccessToken(userId, user.email);
     const newRefreshToken = TokenService.generateRefreshToken(userId);
-    await TokenService.storeRefreshToken(userId, newRefreshToken);
+
+    // Atomic: revoke old + store new in a single Redis pipeline
+    await TokenService.rotateRefreshToken(userId, refreshToken, newRefreshToken);
 
     return {
       data: {

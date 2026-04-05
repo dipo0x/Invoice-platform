@@ -23,6 +23,12 @@ declare module "fastify" {
  * @template TParams - The type of the route parameters. Defaults to `unknown`.
  * @template THeaders - The type of the request headers. Defaults to `unknown`.
  */
+export interface ServiceResult<T = unknown> {
+  data?: T;
+  error?: string;
+  status: number;
+}
+
 export type TypedRequest<
   TBody = unknown,
   TQuery = unknown,

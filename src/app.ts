@@ -9,6 +9,12 @@ import { healthPlugin } from "./plugins/health.plugin.js";
 import { rateLimiterPlugin } from "./plugins/rateLimiter.plugin.js";
 import { authRoutes } from "./modules/auth/auth.route.js";
 import { organizationRoutes } from "./modules/organization/organization.route.js";
+import { clientRoutes } from "./modules/client/client.route.js";
+import { invoiceRoutes } from "./modules/invoice/invoice.route.js";
+import { recurringInvoiceRoutes } from "./modules/recurring-invoice/recurring-invoice.route.js";
+import { paymentRoutes } from "./modules/payment/payment.route.js";
+import { stripeWebhookRoute } from "./modules/payment/stripe-webhook.route.js";
+import { webhookSubscriptionRoutes } from "./modules/webhook-subscription/webhook-subscription.route.js";
 
 export function buildApp() {
   const app = Fastify({
@@ -42,6 +48,12 @@ export function buildApp() {
   // Routes
   app.register(authRoutes, { prefix: "/v1/auth" });
   app.register(organizationRoutes, { prefix: "/v1/organizations" });
+  app.register(clientRoutes, { prefix: "/v1/clients" });
+  app.register(invoiceRoutes, { prefix: "/v1/invoices" });
+  app.register(recurringInvoiceRoutes, { prefix: "/v1/recurring-invoices" });
+  app.register(paymentRoutes, { prefix: "/v1" });
+  app.register(stripeWebhookRoute, { prefix: "/v1" });
+  app.register(webhookSubscriptionRoutes, { prefix: "/v1/webhook-subscriptions" });
 
   // Root route
   app.get("/", async () => {

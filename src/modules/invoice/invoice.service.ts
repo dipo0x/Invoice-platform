@@ -1,0 +1,215 @@
+import mongoose from "mongoose";
+import { Invoice, type InvoiceStatus } from "./invoice.model.js";
+import { Client } from "../client/client.model.js";
+import type {
+  CreateInvoiceBody,
+  UpdateInvoiceBody,
+  ListInvoicesQuery,
+} from "./invoice.schema.js";
+
+// Valid state transitions
+const VALID_TRANSITIONS: Record<InvoiceStatus, InvoiceStatus[]> = {
+  draft: ["sent", "cancelled"],
+  sent: ["viewed", "paid", "partially_paid", "overdue", "cancelled"],
+  viewed: ["paid", "partially_paid", "overdue", "cancelled"],
+  partially_paid: ["paid", "overdue", "cancelled"],
+  overdue: ["paid", "partially_paid", "cancelled"],
+  paid: [],
+  cancelled: [],
+};
+
+function calculateTotals(
+  lineItems: { description: string; quantity: number; unitPrice: number }[],
+  taxRate: number,
+) {
+  const computed = lineItems.map((item) => ({
+    ...item,
+    amount: Math.round(item.quantity * item.unitPrice * 100) / 100,
+  }));
+
+  const subtotal = computed.reduce((sum, item) => sum + item.amount, 0);
+  const taxAmount = Math.round(subtotal * (taxRate / 100) * 100) / 100;
+  const total = Math.round((subtotal + taxAmount) * 100) / 100;
+
+  return { lineItems: computed, subtotal, taxAmount, total };
+}
+
+async function generateInvoiceNumber(orgId: string): Promise<string> {
+  const year = new Date().getFullYear();
+  const count = await Invoice.countDocuments({
+    orgId,
+    invoiceNumber: { $regex: `^INV-${year}-` },
+  });
+  const number = String(count + 1).padStart(4, "0");
+  return `INV-${year}-${number}`;
+}
+
+export class InvoiceService {
+  static async create(orgId: string, input: CreateInvoiceBody) {
+    // Verify client belongs to this org
+    const client = await Client.findOne({
+      _id: input.clientId,
+      orgId,
+      deletedAt: null,
+    });
+    if (!client) {
+      return { error: "Client not found", status: 404 };
+    }
+
+    const taxRate = input.taxRate ?? 0;
+    const { lineItems, subtotal, taxAmount, total } = calculateTotals(
+      input.lineItems,
+      taxRate,
+    );
+
+    const invoiceNumber = await generateInvoiceNumber(orgId);
+
+    const invoice = await Invoice.create({
+      orgId: new mongoose.Types.ObjectId(orgId),
+      clientId: new mongoose.Types.ObjectId(input.clientId),
+      invoiceNumber,
+      status: "draft",
+      lineItems,
+      subtotal,
+      taxRate,
+      taxAmount,
+      total,
+      currency: input.currency ?? "USD",
+      dueDate: new Date(input.dueDate),
+      notes: input.notes,
+    });
+
+    return { data: invoice.toJSON(), status: 201 };
+  }
+
+  static async getById(orgId: string, invoiceId: string) {
+    const invoice = await Invoice.findOne({ _id: invoiceId, orgId });
+    if (!invoice) {
+      return { error: "Invoice not found", status: 404 };
+    }
+
+    return { data: invoice.toJSON(), status: 200 };
+  }
+
+  static async list(orgId: string, query: ListInvoicesQuery) {
+    const limit = query.limit ?? 20;
+
+    const filter: Record<string, unknown> = { orgId };
+
+    if (query.cursor) {
+      filter["_id"] = { $lt: new mongoose.Types.ObjectId(query.cursor) };
+    }
+
+    if (query.status) {
+      filter["status"] = query.status;
+    }
+
+    if (query.clientId) {
+      filter["clientId"] = query.clientId;
+    }
+
+    if (query.from || query.to) {
+      const dateFilter: Record<string, Date> = {};
+      if (query.from) dateFilter["$gte"] = new Date(query.from);
+      if (query.to) dateFilter["$lte"] = new Date(query.to);
+      filter["createdAt"] = dateFilter;
+    }
+
+    const invoices = await Invoice.find(filter)
+      .sort({ _id: -1 })
+      .limit(limit + 1)
+      .lean();
+
+    const hasMore = invoices.length > limit;
+    const results = hasMore ? invoices.slice(0, limit) : invoices;
+    const nextCursor = hasMore ? String(results[results.length - 1]!._id) : null;
+
+    return {
+      data: { invoices: results, nextCursor, hasMore },
+      status: 200,
+    };
+  }
+
+  static async update(orgId: string, invoiceId: string, input: UpdateInvoiceBody) {
+    const invoice = await Invoice.findOne({ _id: invoiceId, orgId });
+    if (!invoice) {
+      return { error: "Invoice not found", status: 404 };
+    }
+
+    if (invoice.status !== "draft") {
+      return { error: "Only draft invoices can be updated", status: 400 };
+    }
+
+    const taxRate = input.taxRate ?? invoice.taxRate;
+    const rawLineItems = input.lineItems ?? invoice.lineItems;
+    const { lineItems, subtotal, taxAmount, total } = calculateTotals(
+      rawLineItems,
+      taxRate,
+    );
+
+    const updated = await Invoice.findByIdAndUpdate(
+      invoiceId,
+      {
+        lineItems,
+        subtotal,
+        taxRate,
+        taxAmount,
+        total,
+        ...(input.dueDate && { dueDate: new Date(input.dueDate) }),
+        ...(input.notes !== undefined && { notes: input.notes }),
+      },
+      { new: true },
+    );
+
+    return { data: updated!.toJSON(), status: 200 };
+  }
+
+  static async send(orgId: string, invoiceId: string) {
+    return this.transition(orgId, invoiceId, "sent", { sentAt: new Date() });
+  }
+
+  static async markViewed(orgId: string, invoiceId: string) {
+    return this.transition(orgId, invoiceId, "viewed", { viewedAt: new Date() });
+  }
+
+  static async cancel(orgId: string, invoiceId: string) {
+    return this.transition(orgId, invoiceId, "cancelled");
+  }
+
+  private static async transition(
+    orgId: string,
+    invoiceId: string,
+    targetStatus: InvoiceStatus,
+    extraFields: Record<string, unknown> = {},
+  ) {
+    // Build the list of valid source statuses for the target
+    const validFromStatuses = Object.entries(VALID_TRANSITIONS)
+      .filter(([, targets]) => targets.includes(targetStatus))
+      .map(([source]) => source);
+
+    if (validFromStatuses.length === 0) {
+      return { error: `No valid transition to "${targetStatus}"`, status: 400 };
+    }
+
+    // Atomic: only update if the current status allows this transition
+    const updated = await Invoice.findOneAndUpdate(
+      { _id: invoiceId, orgId, status: { $in: validFromStatuses } },
+      { status: targetStatus, ...extraFields },
+      { new: true },
+    );
+
+    if (!updated) {
+      // Determine why it failed: not found or invalid transition
+      const exists = await Invoice.findOne({ _id: invoiceId, orgId });
+      if (!exists) {
+        return { error: "Invoice not found", status: 404 };
+      }
+      return {
+        error: `Cannot transition from "${exists.status}" to "${targetStatus}"`,
+        status: 400,
+      };
+    }
+
+    return { data: updated!.toJSON(), status: 200 };
+  }
+}

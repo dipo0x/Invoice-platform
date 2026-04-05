@@ -2,7 +2,7 @@ import { prop, getModelForClass, index, modelOptions, Ref, Severity } from "@typ
 import { UserClass } from "../auth/auth.model.js";
 
 @modelOptions({
-  schemaOptions: { timestamps: true },
+  schemaOptions: { timestamps: true, collection: "organizations" },
   options: { allowMixed: Severity.ALLOW },
 })
 @index({ ownerId: 1 })

@@ -4,7 +4,7 @@ import { OrganizationClass } from "../organization/organization.model.js";
 
 export type MemberRole = "owner" | "admin" | "accountant" | "viewer";
 
-@modelOptions({ schemaOptions: { timestamps: true } })
+@modelOptions({ schemaOptions: { timestamps: true, collection: "members" } })
 @index({ userId: 1, orgId: 1 }, { unique: true })
 @index({ orgId: 1 })
 class MemberClass {

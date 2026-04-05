@@ -5,7 +5,7 @@ import {
 } from "@typegoose/typegoose";
 import type { DocumentType } from "@typegoose/typegoose";
 
-@modelOptions({ schemaOptions: { timestamps: true } })
+@modelOptions({ schemaOptions: { timestamps: true, collection: "users" } })
 class UserClass {
   @prop({ required: true, unique: true, lowercase: true, trim: true })
   public email!: string;

@@ -87,7 +87,7 @@ describe("Stripe Webhook", () => {
   // POST /v1/webhooks/stripe -- route-level tests
   // ----------------------------------------------------------------
   describe("POST /v1/webhooks/stripe", () => {
-    it("should return 500 when Stripe is not configured", async () => {
+    it("should return 400 with an invalid stripe-signature", async () => {
       const res = await app.inject({
         method: "POST",
         url: "/v1/webhooks/stripe",
@@ -98,12 +98,10 @@ describe("Stripe Webhook", () => {
         payload: JSON.stringify({ type: "payment_intent.succeeded" }),
       });
 
-      expect(res.statusCode).toBe(500);
-      expect(res.json().error).toBe("Stripe is not configured");
+      expect(res.statusCode).toBe(400);
     });
 
-    it("should return 500 even without stripe-signature when Stripe is not configured", async () => {
-      // The stripe-null check happens before the signature check
+    it("should return 400 when stripe-signature header is missing", async () => {
       const res = await app.inject({
         method: "POST",
         url: "/v1/webhooks/stripe",
@@ -111,8 +109,7 @@ describe("Stripe Webhook", () => {
         payload: JSON.stringify({ type: "payment_intent.succeeded" }),
       });
 
-      expect(res.statusCode).toBe(500);
-      expect(res.json().error).toBe("Stripe is not configured");
+      expect(res.statusCode).toBe(400);
     });
   });
 

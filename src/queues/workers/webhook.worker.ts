@@ -3,6 +3,7 @@ import { Worker } from "bullmq";
 import { bullRedis } from "../connection.js";
 import { logger } from "../../observability/logger.js";
 import { QueueName, type IntegrationJobData } from "../registry.js";
+import { webhookCircuitBreaker } from "../../lib/circuitBreaker.js";
 
 // ─── Webhook Delivery ───────────────────────────────────────────────────────
 //
@@ -34,18 +35,20 @@ async function handleDeliverWebhook(data: IntegrationJobData): Promise<void> {
 
   const startTime = Date.now();
 
-  const response = await fetch(data.url, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "X-Signature": signature,
-      "X-Timestamp": timestamp,
-      "X-Event-Type": data.event,
-      "X-Delivery-Id": data.deliveryId,
-    },
-    body: data.payload,
-    signal: AbortSignal.timeout(DELIVERY_TIMEOUT_MS),
-  });
+  const response = await webhookCircuitBreaker.execute(() =>
+    fetch(data.url, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "X-Signature": signature,
+        "X-Timestamp": timestamp,
+        "X-Event-Type": data.event,
+        "X-Delivery-Id": data.deliveryId,
+      },
+      body: data.payload,
+      signal: AbortSignal.timeout(DELIVERY_TIMEOUT_MS),
+    }),
+  );
 
   const durationMs = Date.now() - startTime;
 

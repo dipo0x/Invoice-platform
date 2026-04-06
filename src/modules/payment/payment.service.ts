@@ -1,10 +1,10 @@
-import mongoose from "mongoose";
 import { stripe } from "../../config/stripe.config.js";
 import { Payment } from "./payment.model.js";
 import { Invoice } from "../invoice/invoice.model.js";
 import { Client } from "../client/client.model.js";
 import { enqueue, QueueName } from "../../queues/registry.js";
 import { dispatchWebhooks } from "../../queues/jobs/dispatchWebhooks.js";
+import { PaymentSaga } from "../../lib/paymentSaga.js";
 
 function sanitizePayment(obj: Record<string, unknown>): Record<string, unknown> {
   const { stripePaymentIntentId, ...rest } = obj;
@@ -13,70 +13,7 @@ function sanitizePayment(obj: Record<string, unknown>): Record<string, unknown> 
 
 export class PaymentService {
   static async createCheckoutSession(orgId: string, invoiceId: string) {
-    const invoice = await Invoice.findOne({ _id: invoiceId, orgId });
-    if (!invoice) {
-      return { error: "Invoice not found", status: 404 };
-    }
-
-    if (invoice.status === "paid") {
-      return { error: "Invoice is already paid", status: 400 };
-    }
-
-    if (invoice.status === "cancelled") {
-      return { error: "Cannot pay a cancelled invoice", status: 400 };
-    }
-
-    if (invoice.status === "draft") {
-      return { error: "Invoice must be sent before payment", status: 400 };
-    }
-
-    if (!stripe) {
-      return { error: "Stripe is not configured", status: 500 };
-    }
-
-    // Amount in cents for Stripe
-    const amountInCents = Math.round(invoice.total * 100);
-
-    const session = await stripe.checkout.sessions.create({
-      mode: "payment",
-      payment_method_types: ["card"],
-      line_items: [
-        {
-          price_data: {
-            currency: invoice.currency.toLowerCase(),
-            unit_amount: amountInCents,
-            product_data: {
-              name: `Invoice ${invoice.invoiceNumber}`,
-            },
-          },
-          quantity: 1,
-        },
-      ],
-      metadata: {
-        orgId,
-        invoiceId: invoice.id as string,
-        invoiceNumber: invoice.invoiceNumber,
-      },
-      success_url: `${process.env["APP_URL"] ?? "http://localhost:3000"}/v1/payments/success?session_id={CHECKOUT_SESSION_ID}`,
-      cancel_url: `${process.env["APP_URL"] ?? "http://localhost:3000"}/v1/payments/cancelled`,
-    });
-
-    const payment = await Payment.create({
-      orgId: new mongoose.Types.ObjectId(orgId),
-      invoiceId: new mongoose.Types.ObjectId(invoiceId),
-      stripePaymentIntentId: session.payment_intent as string | undefined,
-      amount: invoice.total,
-      currency: invoice.currency,
-      status: "pending",
-    });
-
-    return {
-      data: {
-        payment: sanitizePayment(payment.toJSON() as unknown as Record<string, unknown>),
-        paymentUrl: session.url,
-      },
-      status: 201,
-    };
+    return PaymentSaga.executeCheckout(orgId, invoiceId);
   }
 
   static async listByInvoice(orgId: string, invoiceId: string) {

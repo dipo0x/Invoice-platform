@@ -10,11 +10,14 @@ import {
   partialRefundSchema,
 } from "./payment.schema.js";
 import { PaymentController } from "./payment.controller.js";
+import { idempotencyOnRequest, idempotencyOnSend } from "../../middlewares/idempotency.middleware.js";
 
 export async function paymentRoutes(fastify: FastifyInstance): Promise<void> {
   fastify.addHook("onRequest", authMiddleware);
   fastify.addHook("onRequest", tenantContextMiddleware);
   fastify.addHook("onRequest", auditLogMiddleware);
+  fastify.addHook("onRequest", idempotencyOnRequest);
+  fastify.addHook("onSend", idempotencyOnSend);
 
   const app = fastify.withTypeProvider<ZodTypeProvider>();
 

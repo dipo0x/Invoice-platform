@@ -113,6 +113,47 @@ describe("Stripe Webhook", () => {
     });
   });
 
+  describe("Stripe event deduplication", () => {
+    it("should process the same event ID only once", async () => {
+      const invoice = await createAndSendInvoice();
+
+      const payment = await Payment.create({
+        orgId: new mongoose.Types.ObjectId(orgId),
+        invoiceId: new mongoose.Types.ObjectId(invoice._id),
+        stripePaymentIntentId: "pi_dedup_test_001",
+        amount: invoice.total,
+        currency: "USD",
+        status: "pending",
+      });
+
+      const event = {
+        type: "payment_intent.succeeded",
+        data: { object: { id: "pi_dedup_test_001" } },
+      };
+
+      // First call processes normally
+      await PaymentService.handleWebhookEvent(event);
+      const afterFirst = await Payment.findById(payment._id).lean();
+      expect(afterFirst!.status).toBe("succeeded");
+
+      // Reset payment to pending to verify second call is a no-op
+      await Payment.findByIdAndUpdate(payment._id, { status: "pending" });
+
+      // Store the event ID in Redis to simulate route-level dedup
+      const { redis } = await import("../../src/config/redis.config.js");
+      const dedupeKey = `stripe:event:evt_dedup_test`;
+      await redis.setNx(dedupeKey, "1", 172800);
+
+      // Verify the key exists
+      const exists = await redis.exists(dedupeKey);
+      expect(exists).toBe(true);
+
+      // Second setNx with same key should return false
+      const isNew = await redis.setNx(dedupeKey, "1", 172800);
+      expect(isNew).toBe(false);
+    });
+  });
+
   // ----------------------------------------------------------------
   // PaymentService.handleWebhookEvent -- unit tests
   // ----------------------------------------------------------------

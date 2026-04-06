@@ -3,6 +3,7 @@ import { bullRedis } from "../connection.js";
 import { resend } from "../../config/resend.config.js";
 import { config } from "../../config/index.config.js";
 import { logger } from "../../observability/logger.js";
+import { emailCircuitBreaker } from "../../lib/circuitBreaker.js";
 import {
   QueueName,
   type NotificationJobData,
@@ -25,19 +26,21 @@ async function handleSendInvoiceEmail(data: SendInvoiceEmailJob): Promise<void> 
 
   const paymentUrl = `${config.APP_URL}/v1/invoices/${data.invoiceId}/pay`;
 
-  await resend.emails.send({
-    from: config.RESEND_FROM_EMAIL,
-    to: data.recipientEmail,
-    subject: `Invoice ${data.invoiceNumber} - ${data.currency} ${data.total.toFixed(2)}`,
-    html: `
-      <h2>Invoice ${data.invoiceNumber}</h2>
-      <p>Hi ${data.recipientName},</p>
-      <p>You have a new invoice for <strong>${data.currency} ${data.total.toFixed(2)}</strong>.</p>
-      <p>Due date: ${new Date(data.dueDate).toLocaleDateString()}</p>
-      <p><a href="${paymentUrl}">Pay Now</a></p>
-      <p>Thank you for your business.</p>
-    `,
-  });
+  await emailCircuitBreaker.execute(() =>
+    resend!.emails.send({
+      from: config.RESEND_FROM_EMAIL,
+      to: data.recipientEmail,
+      subject: `Invoice ${data.invoiceNumber} - ${data.currency} ${data.total.toFixed(2)}`,
+      html: `
+        <h2>Invoice ${data.invoiceNumber}</h2>
+        <p>Hi ${data.recipientName},</p>
+        <p>You have a new invoice for <strong>${data.currency} ${data.total.toFixed(2)}</strong>.</p>
+        <p>Due date: ${new Date(data.dueDate).toLocaleDateString()}</p>
+        <p><a href="${paymentUrl}">Pay Now</a></p>
+        <p>Thank you for your business.</p>
+      `,
+    }),
+  );
 
   logger.info({ invoiceId: data.invoiceId, to: data.recipientEmail }, "Invoice email sent");
 }
@@ -48,18 +51,20 @@ async function handleSendPaymentReceipt(data: SendPaymentReceiptJob): Promise<vo
     return;
   }
 
-  await resend.emails.send({
-    from: config.RESEND_FROM_EMAIL,
-    to: data.recipientEmail,
-    subject: `Payment received for Invoice ${data.invoiceNumber}`,
-    html: `
-      <h2>Payment Confirmation</h2>
-      <p>Hi ${data.recipientName},</p>
-      <p>We received your payment of <strong>${data.currency} ${data.amount.toFixed(2)}</strong>
-         for invoice ${data.invoiceNumber}.</p>
-      <p>Thank you!</p>
-    `,
-  });
+  await emailCircuitBreaker.execute(() =>
+    resend!.emails.send({
+      from: config.RESEND_FROM_EMAIL,
+      to: data.recipientEmail,
+      subject: `Payment received for Invoice ${data.invoiceNumber}`,
+      html: `
+        <h2>Payment Confirmation</h2>
+        <p>Hi ${data.recipientName},</p>
+        <p>We received your payment of <strong>${data.currency} ${data.amount.toFixed(2)}</strong>
+           for invoice ${data.invoiceNumber}.</p>
+        <p>Thank you!</p>
+      `,
+    }),
+  );
 
   logger.info({ paymentId: data.paymentId, to: data.recipientEmail }, "Payment receipt sent");
 }
@@ -72,19 +77,21 @@ async function handleSendOverdueReminder(data: SendOverdueReminderJob): Promise<
 
   const paymentUrl = `${config.APP_URL}/v1/invoices/${data.invoiceId}/pay`;
 
-  await resend.emails.send({
-    from: config.RESEND_FROM_EMAIL,
-    to: data.recipientEmail,
-    subject: `OVERDUE: Invoice ${data.invoiceNumber} - ${data.currency} ${data.total.toFixed(2)}`,
-    html: `
-      <h2>Invoice ${data.invoiceNumber} is Overdue</h2>
-      <p>Hi ${data.recipientName},</p>
-      <p>Your invoice for <strong>${data.currency} ${data.total.toFixed(2)}</strong>
-         was due on ${new Date(data.dueDate).toLocaleDateString()} and remains unpaid.</p>
-      <p><a href="${paymentUrl}">Pay Now</a></p>
-      <p>Please arrange payment at your earliest convenience.</p>
-    `,
-  });
+  await emailCircuitBreaker.execute(() =>
+    resend!.emails.send({
+      from: config.RESEND_FROM_EMAIL,
+      to: data.recipientEmail,
+      subject: `OVERDUE: Invoice ${data.invoiceNumber} - ${data.currency} ${data.total.toFixed(2)}`,
+      html: `
+        <h2>Invoice ${data.invoiceNumber} is Overdue</h2>
+        <p>Hi ${data.recipientName},</p>
+        <p>Your invoice for <strong>${data.currency} ${data.total.toFixed(2)}</strong>
+           was due on ${new Date(data.dueDate).toLocaleDateString()} and remains unpaid.</p>
+        <p><a href="${paymentUrl}">Pay Now</a></p>
+        <p>Please arrange payment at your earliest convenience.</p>
+      `,
+    }),
+  );
 
   logger.info({ invoiceId: data.invoiceId, to: data.recipientEmail }, "Overdue reminder sent");
 }

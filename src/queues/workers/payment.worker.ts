@@ -2,6 +2,7 @@ import { Worker } from "bullmq";
 import { bullRedis } from "../connection.js";
 import { stripe } from "../../config/stripe.config.js";
 import { logger } from "../../observability/logger.js";
+import { stripeCircuitBreaker } from "../../lib/circuitBreaker.js";
 import { Payment } from "../../modules/payment/payment.model.js";
 import { Invoice } from "../../modules/invoice/invoice.model.js";
 import { Client } from "../../modules/client/client.model.js";
@@ -11,6 +12,7 @@ import type {
   PaymentJobData,
   ProcessRefundJob,
   SyncPaymentStatusJob,
+  ReconcilePaymentJob,
 } from "../registry.js";
 
 // ─── Refund Handler ─────────────────────────────────────────────────────────
@@ -51,7 +53,7 @@ async function handleProcessRefund(data: ProcessRefundJob): Promise<void> {
     refundParams.amount = Math.round(data.amount * 100);
   }
 
-  await stripe.refunds.create(refundParams);
+  await stripeCircuitBreaker.execute(() => stripe!.refunds.create(refundParams));
 
   const isFullRefund = !data.amount || data.amount >= payment.amount;
 
@@ -105,7 +107,9 @@ async function handleSyncPaymentStatus(data: SyncPaymentStatusJob): Promise<void
     throw new Error("Stripe is not configured");
   }
 
-  const paymentIntent = await stripe.paymentIntents.retrieve(data.stripePaymentIntentId);
+  const paymentIntent = await stripeCircuitBreaker.execute(
+    () => stripe!.paymentIntents.retrieve(data.stripePaymentIntentId),
+  );
 
   const payment = await Payment.findOne({
     stripePaymentIntentId: data.stripePaymentIntentId,
@@ -143,6 +147,31 @@ async function handleSyncPaymentStatus(data: SyncPaymentStatusJob): Promise<void
   }
 }
 
+// ─── Reconcile Payment ──────────────────────────────────────────────────────
+//
+// Handles the case where a Stripe Checkout Session was created but the
+// local Payment record could not be updated with the Stripe session ID.
+// This job retries linking the two.
+
+async function handleReconcilePayment(data: ReconcilePaymentJob): Promise<void> {
+  if (!stripe) {
+    throw new Error("Stripe is not configured");
+  }
+
+  const session = await stripeCircuitBreaker.execute(
+    () => stripe!.checkout.sessions.retrieve(data.stripeSessionId),
+  );
+
+  await Payment.findByIdAndUpdate(data.paymentId, {
+    stripePaymentIntentId: session.payment_intent as string | undefined,
+  });
+
+  logger.info(
+    { paymentId: data.paymentId, stripeSessionId: data.stripeSessionId },
+    "Payment reconciled with Stripe session",
+  );
+}
+
 // ─── Worker ─────────────────────────────────────────────────────────────────
 
 export function createPaymentWorker(): Worker<PaymentJobData> {
@@ -154,6 +183,8 @@ export function createPaymentWorker(): Worker<PaymentJobData> {
           return handleProcessRefund(job.data);
         case "sync-payment-status":
           return handleSyncPaymentStatus(job.data);
+        case "reconcile-payment":
+          return handleReconcilePayment(job.data);
         default: {
           const _exhaustive: never = job.data;
           throw new Error(`Unknown payment job type: ${(_exhaustive as PaymentJobData).type}`);

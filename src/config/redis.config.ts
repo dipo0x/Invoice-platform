@@ -66,6 +66,12 @@ export class RedisClient {
     return result === 1;
   }
 
+  /** SET key value EX ttl NX -- returns true if the key was set (did not already exist) */
+  async setNx(key: string, value: string, ttlSeconds: number): Promise<boolean> {
+    const result = await this.client.set(key, value, "EX", ttlSeconds, "NX");
+    return result === "OK";
+  }
+
   /** Expose the raw ioredis instance for libraries that need it (e.g. @fastify/rate-limit) */
   get raw(): Redis {
     return this.client;

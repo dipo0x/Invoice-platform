@@ -30,6 +30,12 @@ export function buildApp() {
   // Global error handler
   app.setErrorHandler(
     (error: FastifyError, _request: FastifyRequest, reply: FastifyReply) => {
+      // Idempotent cached response -- return the original response
+      if ("cachedBody" in error) {
+        const cached = error as unknown as { statusCode: number; cachedBody: string };
+        return reply.status(cached.statusCode).send(JSON.parse(cached.cachedBody));
+      }
+
       if (error.validation && error.validation.length > 0) {
         const message = error.validation
           .map((err) => err.message)

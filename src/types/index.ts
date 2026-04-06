@@ -12,6 +12,7 @@ declare module "fastify" {
       id: string;
       email: string;
     };
+    idempotencyKey?: string;
   }
 }
 

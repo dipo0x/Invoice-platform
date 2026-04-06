@@ -104,7 +104,13 @@ export interface SyncPaymentStatusJob {
   stripePaymentIntentId: string;
 }
 
-export type PaymentJobData = ProcessRefundJob | SyncPaymentStatusJob;
+export interface ReconcilePaymentJob {
+  type: "reconcile-payment";
+  paymentId: string;
+  stripeSessionId: string;
+}
+
+export type PaymentJobData = ProcessRefundJob | SyncPaymentStatusJob | ReconcilePaymentJob;
 
 // -- integrations queue --
 

@@ -1,6 +1,8 @@
 import mongoose from "mongoose";
 import { Invoice, type InvoiceStatus } from "./invoice.model.js";
 import { Client } from "../client/client.model.js";
+import { enqueue, QueueName } from "../../queues/registry.js";
+import { dispatchWebhooks } from "../../queues/jobs/dispatchWebhooks.js";
 import type {
   CreateInvoiceBody,
   UpdateInvoiceBody,
@@ -165,7 +167,25 @@ export class InvoiceService {
   }
 
   static async send(orgId: string, invoiceId: string) {
-    return this.transition(orgId, invoiceId, "sent", { sentAt: new Date() });
+    const result = await this.transition(orgId, invoiceId, "sent", { sentAt: new Date() });
+
+    if (result.data) {
+      // Queue PDF generation (which also queues the email)
+      await enqueue(QueueName.INVOICES, "generate-pdf", {
+        type: "generate-invoice-pdf",
+        orgId,
+        invoiceId,
+      });
+
+      // Notify webhook subscribers
+      const invoiceData = result.data as unknown as Record<string, unknown>;
+      await dispatchWebhooks(orgId, "invoice.sent", {
+        invoiceId,
+        invoiceNumber: invoiceData["invoiceNumber"],
+      });
+    }
+
+    return result;
   }
 
   static async markViewed(orgId: string, invoiceId: string) {

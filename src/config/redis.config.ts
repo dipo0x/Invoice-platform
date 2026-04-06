@@ -7,7 +7,7 @@ export class RedisClient {
 
   constructor(url: string, options: { maxRetriesPerRequest?: number | null } = {}) {
     this.client = new Redis(url, {
-      maxRetriesPerRequest: options.maxRetriesPerRequest ?? 3,
+      maxRetriesPerRequest: "maxRetriesPerRequest" in options ? options.maxRetriesPerRequest! : 3,
       lazyConnect: true,
     });
 

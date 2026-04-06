@@ -15,6 +15,7 @@ import { recurringInvoiceRoutes } from "./modules/recurring-invoice/recurring-in
 import { paymentRoutes } from "./modules/payment/payment.route.js";
 import { stripeWebhookRoute } from "./modules/payment/stripe-webhook.route.js";
 import { webhookSubscriptionRoutes } from "./modules/webhook-subscription/webhook-subscription.route.js";
+import { bullBoardPlugin } from "./plugins/bullBoard.plugin.js";
 
 export function buildApp() {
   const app = Fastify({
@@ -54,6 +55,9 @@ export function buildApp() {
   app.register(paymentRoutes, { prefix: "/v1" });
   app.register(stripeWebhookRoute, { prefix: "/v1" });
   app.register(webhookSubscriptionRoutes, { prefix: "/v1/webhook-subscriptions" });
+
+  // Queue dashboard
+  app.register(bullBoardPlugin);
 
   // Root route
   app.get("/", async () => {

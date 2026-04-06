@@ -2,6 +2,9 @@ import mongoose from "mongoose";
 import { stripe } from "../../config/stripe.config.js";
 import { Payment } from "./payment.model.js";
 import { Invoice } from "../invoice/invoice.model.js";
+import { Client } from "../client/client.model.js";
+import { enqueue, QueueName } from "../../queues/registry.js";
+import { dispatchWebhooks } from "../../queues/jobs/dispatchWebhooks.js";
 
 function sanitizePayment(obj: Record<string, unknown>): Record<string, unknown> {
   const { stripePaymentIntentId, ...rest } = obj;
@@ -199,6 +202,7 @@ export class PaymentService {
             { _id: payment.invoiceId, status: { $ne: "paid" } },
             { status: "paid", paidAt: new Date() },
           );
+          await this.enqueuePaymentNotifications(payment, session.metadata.orgId);
         }
         break;
       }
@@ -218,6 +222,7 @@ export class PaymentService {
           { _id: payment.invoiceId, status: { $ne: "paid" } },
           { status: "paid", paidAt: new Date() },
         );
+        await this.enqueuePaymentNotifications(payment, String(payment.orgId));
         break;
       }
 
@@ -232,8 +237,41 @@ export class PaymentService {
           { _id: payment._id, status: { $ne: "failed" } },
           { status: "failed", failureReason: "Payment failed" },
         );
+
+        await dispatchWebhooks(String(payment.orgId), "payment.failed", {
+          paymentId: String(payment._id),
+          invoiceId: String(payment.invoiceId),
+        });
         break;
       }
     }
+  }
+
+  private static async enqueuePaymentNotifications(
+    payment: { _id: unknown; invoiceId: unknown; amount: number; currency: string; orgId: unknown },
+    orgId: string,
+  ): Promise<void> {
+    const invoice = await Invoice.findById(payment.invoiceId).lean();
+    const client = invoice ? await Client.findById(invoice.clientId).lean() : null;
+
+    if (client?.email && invoice) {
+      await enqueue(QueueName.NOTIFICATIONS, "payment-receipt", {
+        type: "send-payment-receipt",
+        orgId,
+        invoiceId: String(payment.invoiceId),
+        paymentId: String(payment._id),
+        recipientEmail: client.email,
+        recipientName: client.name,
+        invoiceNumber: invoice.invoiceNumber,
+        amount: payment.amount,
+        currency: payment.currency,
+      });
+    }
+
+    await dispatchWebhooks(orgId, "payment.succeeded", {
+      paymentId: String(payment._id),
+      invoiceId: String(payment.invoiceId),
+      amount: payment.amount,
+    });
   }
 }

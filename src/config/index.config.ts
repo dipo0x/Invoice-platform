@@ -12,7 +12,9 @@ const envSchema = z.object({
   JWT_REFRESH_SECRET: z.string().min(1, "JWT_REFRESH_SECRET is required"),
   STRIPE_SECRET_KEY: z.string().default(""),
   STRIPE_WEBHOOK_SECRET: z.string().default(""),
-  EMAIL_API_KEY: z.string().default("")
+  EMAIL_API_KEY: z.string().default(""),
+  RESEND_FROM_EMAIL: z.string().default("invoices@yourdomain.com"),
+  APP_URL: z.string().default("http://localhost:3000")
 });
 
 const parsed = envSchema.safeParse(process.env);

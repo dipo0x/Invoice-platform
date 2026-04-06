@@ -2,6 +2,8 @@ import { config } from "./config/index.config.js";
 import { database } from "./config/database.config.js";
 import { redis } from "./config/redis.config.js";
 import { bullRedis } from "./queues/connection.js";
+import { startAllWorkers, stopAllWorkers } from "./queues/workers/index.js";
+import { closeAllQueues } from "./queues/registry.js";
 import { logger } from "./observability/logger.js";
 import { buildApp } from "./app.js";
 
@@ -14,6 +16,7 @@ async function main(): Promise<void> {
   await database.connect();
   await redis.connect();
   await bullRedis.connect();
+  await startAllWorkers();
 
   // Start HTTP server
   await app.listen({ port: config.PORT, host: "0.0.0.0" });
@@ -39,6 +42,12 @@ async function main(): Promise<void> {
     try {
       logger.info("Closing HTTP server");
       await app.close();
+
+      logger.info("Stopping queue workers");
+      await stopAllWorkers();
+
+      logger.info("Closing queue instances");
+      await closeAllQueues();
 
       logger.info("Closing BullMQ Redis");
       await bullRedis.disconnect();

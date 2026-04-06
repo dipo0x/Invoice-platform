@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeAll } from "vitest";
+import { describe, it, expect, beforeAll, vi } from "vitest";
 import { getApp } from "../helpers.js";
 import type { FastifyInstance } from "fastify";
 
@@ -220,6 +220,39 @@ describe("Full flow: register -> login -> org -> client -> invoice -> payment", 
     expect(draftPayRes.json().error).toBe("Invoice must be sent before payment");
 
     // ---- Step 13: Create Stripe payment intent ----
+    // Mock Stripe checkout since we use a test API key
+    const paymentServiceModule = await import("../../src/modules/payment/payment.service.js");
+    const createCheckoutSpy = vi.spyOn(paymentServiceModule.PaymentService, "createCheckoutSession");
+    createCheckoutSpy.mockImplementation(async (orgIdArg, invoiceIdArg) => {
+      const { Invoice } = await import("../../src/modules/invoice/invoice.model.js");
+      const { Payment } = await import("../../src/modules/payment/payment.model.js");
+      const mongoose = (await import("mongoose")).default;
+
+      const invoice = await Invoice.findOne({ _id: invoiceIdArg, orgId: orgIdArg });
+      if (!invoice) return { error: "Invoice not found", status: 404 };
+      if (invoice.status === "paid") return { error: "Invoice is already paid", status: 400 };
+      if (invoice.status === "cancelled") return { error: "Cannot pay a cancelled invoice", status: 400 };
+      if (invoice.status === "draft") return { error: "Invoice must be sent before payment", status: 400 };
+
+      const payment = await Payment.create({
+        orgId: new mongoose.Types.ObjectId(orgIdArg),
+        invoiceId: new mongoose.Types.ObjectId(invoiceIdArg),
+        stripePaymentIntentId: "pi_test_mock_123",
+        amount: invoice.total,
+        currency: invoice.currency,
+        status: "pending",
+      });
+
+      const { stripePaymentIntentId, ...sanitized } = payment.toJSON() as Record<string, unknown>;
+      return {
+        data: {
+          payment: sanitized,
+          paymentUrl: "https://checkout.stripe.com/pay/cs_test_mock",
+        },
+        status: 201,
+      };
+    });
+
     const payRes = await app.inject({
       method: "POST",
       url: `/v1/invoices/${invoiceId}/pay`,
@@ -235,6 +268,8 @@ describe("Full flow: register -> login -> org -> client -> invoice -> payment", 
     expect(payment.payment.amount).toBe(5160);
     expect(payment.payment.currency).toBe("USD");
     expect(payment.payment.status).toBe("pending");
+
+    createCheckoutSpy.mockRestore();
 
     // ---- Step 14: List payments ----
     const listPayRes = await app.inject({

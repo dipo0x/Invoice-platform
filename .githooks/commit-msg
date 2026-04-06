@@ -1,0 +1,24 @@
+#!/usr/bin/env bash
+
+commit_msg_file="$1"
+commit_msg=$(head -1 "$commit_msg_file")
+
+# Conventional Commits: type(optional scope): description
+pattern="^(feat|fix|docs|style|refactor|perf|test|build|ci|chore|revert)(\(.+\))?(!)?: .+"
+
+if ! echo "$commit_msg" | grep -qE "$pattern"; then
+  echo "ERROR: Commit message does not follow Conventional Commits format."
+  echo ""
+  echo "Expected: <type>[optional scope]: <description>"
+  echo ""
+  echo "Allowed types:"
+  echo "  feat, fix, docs, style, refactor, perf, test, build, ci, chore, revert"
+  echo ""
+  echo "Examples:"
+  echo "  feat: add user authentication"
+  echo "  fix(api): handle null response"
+  echo "  docs: update README"
+  echo ""
+  echo "Your message: $commit_msg"
+  exit 1
+fi

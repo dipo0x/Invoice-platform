@@ -13,10 +13,6 @@ function sanitizePayment(obj: Record<string, unknown>): Record<string, unknown> 
 
 export class PaymentService {
   static async createCheckoutSession(orgId: string, invoiceId: string) {
-    if (!stripe) {
-      return { error: "Stripe is not configured", status: 500 };
-    }
-
     const invoice = await Invoice.findOne({ _id: invoiceId, orgId });
     if (!invoice) {
       return { error: "Invoice not found", status: 404 };
@@ -32,6 +28,10 @@ export class PaymentService {
 
     if (invoice.status === "draft") {
       return { error: "Invoice must be sent before payment", status: 400 };
+    }
+
+    if (!stripe) {
+      return { error: "Stripe is not configured", status: 500 };
     }
 
     // Amount in cents for Stripe
@@ -95,10 +95,6 @@ export class PaymentService {
   }
 
   static async refund(orgId: string, paymentId: string) {
-    if (!stripe) {
-      return { error: "Stripe is not configured", status: 500 };
-    }
-
     const payment = await Payment.findOne({ _id: paymentId, orgId });
     if (!payment) {
       return { error: "Payment not found", status: 404 };
@@ -110,6 +106,10 @@ export class PaymentService {
 
     if (!payment.stripePaymentIntentId) {
       return { error: "No Stripe payment intent associated", status: 400 };
+    }
+
+    if (!stripe) {
+      return { error: "Stripe is not configured", status: 500 };
     }
 
     await stripe.refunds.create({
@@ -130,10 +130,6 @@ export class PaymentService {
 
   /** Partial refund support */
   static async partialRefund(orgId: string, paymentId: string, amount: number) {
-    if (!stripe) {
-      return { error: "Stripe is not configured", status: 500 };
-    }
-
     const payment = await Payment.findOne({ _id: paymentId, orgId });
     if (!payment) {
       return { error: "Payment not found", status: 404 };
@@ -149,6 +145,10 @@ export class PaymentService {
 
     if (!payment.stripePaymentIntentId) {
       return { error: "No Stripe payment intent associated", status: 400 };
+    }
+
+    if (!stripe) {
+      return { error: "Stripe is not configured", status: 500 };
     }
 
     const amountInCents = Math.round(amount * 100);

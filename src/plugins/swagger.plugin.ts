@@ -1,4 +1,5 @@
 import type { FastifyInstance } from "fastify";
+import fp from "fastify-plugin";
 import fastifySwagger from "@fastify/swagger";
 import fastifySwaggerUi from "@fastify/swagger-ui";
 import {
@@ -6,7 +7,7 @@ import {
   jsonSchemaTransformObject,
 } from "fastify-type-provider-zod";
 
-export async function swaggerPlugin(app: FastifyInstance): Promise<void> {
+export const swaggerPlugin = fp(async function (app: FastifyInstance): Promise<void> {
   await app.register(fastifySwagger, {
     openapi: {
       info: {
@@ -54,10 +55,11 @@ export async function swaggerPlugin(app: FastifyInstance): Promise<void> {
 
   await app.register(fastifySwaggerUi, {
     routePrefix: "/docs",
+    staticCSP: false,
     uiConfig: {
       docExpansion: "list",
       deepLinking: true,
       persistAuthorization: true,
     },
   });
-}
+});

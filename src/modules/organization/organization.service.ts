@@ -2,6 +2,7 @@ import mongoose from "mongoose";
 import { Organization } from "./organization.model.js";
 import { Member } from "../member/member.model.js";
 import { User } from "../auth/auth.model.js";
+import { cacheAside, invalidateCache, CacheKeys, CacheTTL } from "../../lib/cache.js";
 import type {
   CreateOrgBody,
   UpdateOrgBody,
@@ -41,12 +42,20 @@ export class OrganizationService {
       return { error: "Access denied", status: 403 };
     }
 
-    const org = await Organization.findById(orgId);
+    const org = await cacheAside(
+      CacheKeys.orgSettings(orgId),
+      CacheTTL.ORG_SETTINGS,
+      async () => {
+        const found = await Organization.findById(orgId);
+        return found ? found.toJSON() : null;
+      },
+    );
+
     if (!org) {
       return { error: "Organization not found", status: 404 };
     }
 
-    return { data: org.toJSON(), status: 200 };
+    return { data: org, status: 200 };
   }
 
   static async update(orgId: string, userId: string, input: UpdateOrgBody) {
@@ -67,6 +76,8 @@ export class OrganizationService {
     if (!org) {
       return { error: "Organization not found", status: 404 };
     }
+
+    await invalidateCache(CacheKeys.orgSettings(orgId));
 
     return { data: org.toJSON(), status: 200 };
   }

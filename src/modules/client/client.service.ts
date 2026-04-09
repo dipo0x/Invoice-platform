@@ -1,5 +1,7 @@
 import mongoose from "mongoose";
+import crypto from "node:crypto";
 import { Client } from "./client.model.js";
+import { cacheAside, invalidateCacheByPrefix, CacheKeys, CacheTTL } from "../../lib/cache.js";
 import type {
   CreateClientBody,
   UpdateClientBody,
@@ -12,6 +14,8 @@ export class ClientService {
       orgId: new mongoose.Types.ObjectId(orgId),
       ...input,
     });
+
+    await invalidateCacheByPrefix(`cache:org:${orgId}:clients:`);
 
     return { data: client.toJSON(), status: 201 };
   }
@@ -37,40 +41,46 @@ export class ClientService {
   static async list(orgId: string, query: ListClientsQuery) {
     const limit = query.limit ?? 20;
 
-    const filter: Record<string, unknown> = {
-      orgId,
-      deletedAt: null,
-    };
+    // Build a stable hash of query params for the cache key
+    const queryHash = crypto
+      .createHash("md5")
+      .update(JSON.stringify({ cursor: query.cursor, limit, search: query.search }))
+      .digest("hex")
+      .slice(0, 12);
 
-    // Cursor-based pagination: get documents after the cursor ID
-    if (query.cursor) {
-      filter["_id"] = { $lt: new mongoose.Types.ObjectId(query.cursor) };
-    }
+    const result = await cacheAside(
+      CacheKeys.clientList(orgId, queryHash),
+      CacheTTL.CLIENT_LIST,
+      async () => {
+        const filter: Record<string, unknown> = {
+          orgId,
+          deletedAt: null,
+        };
 
-    // Search by name or email (escape special regex chars to prevent ReDoS)
-    if (query.search) {
-      const escaped = query.search.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-      const regex = new RegExp(escaped, "i");
-      filter["$or"] = [{ name: regex }, { email: regex }];
-    }
+        if (query.cursor) {
+          filter["_id"] = { $lt: new mongoose.Types.ObjectId(query.cursor) };
+        }
 
-    const clients = await Client.find(filter)
-      .sort({ _id: -1 })
-      .limit(limit + 1)
-      .lean();
+        if (query.search) {
+          const escaped = query.search.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+          const regex = new RegExp(escaped, "i");
+          filter["$or"] = [{ name: regex }, { email: regex }];
+        }
 
-    const hasMore = clients.length > limit;
-    const results = hasMore ? clients.slice(0, limit) : clients;
-    const nextCursor = hasMore ? String(results[results.length - 1]!._id) : null;
+        const clients = await Client.find(filter)
+          .sort({ _id: -1 })
+          .limit(limit + 1)
+          .lean();
 
-    return {
-      data: {
-        clients: results,
-        nextCursor,
-        hasMore,
+        const hasMore = clients.length > limit;
+        const results = hasMore ? clients.slice(0, limit) : clients;
+        const nextCursor = hasMore ? String(results[results.length - 1]!._id) : null;
+
+        return { clients: results, nextCursor, hasMore };
       },
-      status: 200,
-    };
+    );
+
+    return { data: result, status: 200 };
   }
 
   static async update(orgId: string, clientId: string, input: UpdateClientBody) {
@@ -83,6 +93,8 @@ export class ClientService {
     if (!client) {
       return { error: "Client not found", status: 404 };
     }
+
+    await invalidateCacheByPrefix(`cache:org:${orgId}:clients:`);
 
     return { data: client.toJSON(), status: 200 };
   }
@@ -97,6 +109,8 @@ export class ClientService {
     if (!client) {
       return { error: "Client not found", status: 404 };
     }
+
+    await invalidateCacheByPrefix(`cache:org:${orgId}:clients:`);
 
     return { data: { message: "Client deleted" }, status: 200 };
   }

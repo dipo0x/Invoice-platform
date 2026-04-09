@@ -14,7 +14,8 @@ const envSchema = z.object({
   STRIPE_WEBHOOK_SECRET: z.string().default(""),
   EMAIL_API_KEY: z.string().default(""),
   RESEND_FROM_EMAIL: z.string().default("invoices@yourdomain.com"),
-  APP_URL: z.string().default("http://localhost:3000")
+  APP_URL: z.string().default("http://localhost:3000"),
+  OTEL_EXPORTER_OTLP_ENDPOINT: z.string().default("http://localhost:4318"),
 });
 
 const parsed = envSchema.safeParse(process.env);

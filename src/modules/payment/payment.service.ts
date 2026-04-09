@@ -5,6 +5,7 @@ import { Client } from "../client/client.model.js";
 import { enqueue, QueueName } from "../../queues/registry.js";
 import { dispatchWebhooks } from "../../queues/jobs/dispatchWebhooks.js";
 import { PaymentSaga } from "../../lib/paymentSaga.js";
+import { paymentsProcessedTotal } from "../../observability/metrics.js";
 
 function sanitizePayment(obj: Record<string, unknown>): Record<string, unknown> {
   const { stripePaymentIntentId, ...rest } = obj;
@@ -139,6 +140,7 @@ export class PaymentService {
             { _id: payment.invoiceId, status: { $ne: "paid" } },
             { status: "paid", paidAt: new Date() },
           );
+          paymentsProcessedTotal.inc({ org_id: session.metadata.orgId, status: "succeeded" });
           await this.enqueuePaymentNotifications(payment, session.metadata.orgId);
         }
         break;
@@ -175,6 +177,7 @@ export class PaymentService {
           { status: "failed", failureReason: "Payment failed" },
         );
 
+        paymentsProcessedTotal.inc({ org_id: String(payment.orgId), status: "failed" });
         await dispatchWebhooks(String(payment.orgId), "payment.failed", {
           paymentId: String(payment._id),
           invoiceId: String(payment.invoiceId),

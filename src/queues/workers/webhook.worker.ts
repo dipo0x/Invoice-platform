@@ -2,6 +2,7 @@ import crypto from "node:crypto";
 import { Worker } from "bullmq";
 import { bullRedis } from "../connection.js";
 import { logger } from "../../observability/logger.js";
+import { queueJobDuration, queueFailedTotal } from "../../observability/metrics.js";
 import { QueueName, type IntegrationJobData } from "../registry.js";
 import { webhookCircuitBreaker } from "../../lib/circuitBreaker.js";
 
@@ -88,6 +89,12 @@ export function createWebhookWorker(): Worker<IntegrationJobData> {
   );
 
   worker.on("completed", (job) => {
+    if (job.processedOn && job.finishedOn) {
+      queueJobDuration.observe(
+        { queue: "integrations", job_type: "deliver-webhook" },
+        (job.finishedOn - job.processedOn) / 1000,
+      );
+    }
     logger.info(
       { jobId: job.id, deliveryId: job.data.deliveryId },
       "Webhook delivery job completed",
@@ -95,6 +102,9 @@ export function createWebhookWorker(): Worker<IntegrationJobData> {
   });
 
   worker.on("failed", (job, err) => {
+    if (job) {
+      queueFailedTotal.inc({ queue: "integrations", job_type: "deliver-webhook" });
+    }
     logger.error(
       { jobId: job?.id, deliveryId: job?.data.deliveryId, err: err.message },
       "Webhook delivery job failed",

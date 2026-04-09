@@ -3,11 +3,14 @@ import { Invoice, type InvoiceStatus } from "./invoice.model.js";
 import { Client } from "../client/client.model.js";
 import { enqueue, QueueName } from "../../queues/registry.js";
 import { dispatchWebhooks } from "../../queues/jobs/dispatchWebhooks.js";
+import { SpanStatusCode } from "@opentelemetry/api";
 import type {
   CreateInvoiceBody,
   UpdateInvoiceBody,
   ListInvoicesQuery,
 } from "./invoice.schema.js";
+import { tracer } from "../../observability/tracer.js";
+import { invoicesCreatedTotal } from "../../observability/metrics.js";
 
 // Valid state transitions
 const VALID_TRANSITIONS: Record<InvoiceStatus, InvoiceStatus[]> = {
@@ -48,40 +51,62 @@ async function generateInvoiceNumber(orgId: string): Promise<string> {
 
 export class InvoiceService {
   static async create(orgId: string, input: CreateInvoiceBody) {
-    // Verify client belongs to this org
-    const client = await Client.findOne({
-      _id: input.clientId,
-      orgId,
-      deletedAt: null,
+    return tracer.startActiveSpan("invoice.create", async (span) => {
+      span.setAttributes({ "invoice.org_id": orgId, "invoice.client_id": input.clientId });
+
+      try {
+        // Verify client belongs to this org
+        const client = await Client.findOne({
+          _id: input.clientId,
+          orgId,
+          deletedAt: null,
+        });
+        if (!client) {
+          span.end();
+          return { error: "Client not found", status: 404 };
+        }
+
+        const taxRate = input.taxRate ?? 0;
+        const { lineItems, subtotal, taxAmount, total } = calculateTotals(
+          input.lineItems,
+          taxRate,
+        );
+
+        const invoiceNumber = await generateInvoiceNumber(orgId);
+
+        const invoice = await Invoice.create({
+          orgId: new mongoose.Types.ObjectId(orgId),
+          clientId: new mongoose.Types.ObjectId(input.clientId),
+          invoiceNumber,
+          status: "draft",
+          lineItems,
+          subtotal,
+          taxRate,
+          taxAmount,
+          total,
+          currency: input.currency ?? "USD",
+          dueDate: new Date(input.dueDate),
+          notes: input.notes,
+        });
+
+        span.setAttributes({
+          "invoice.id": String(invoice._id),
+          "invoice.number": invoiceNumber,
+          "invoice.total": total,
+          "invoice.currency": input.currency ?? "USD",
+        });
+
+        invoicesCreatedTotal.inc({ org_id: orgId, status: "draft" });
+
+        span.setStatus({ code: SpanStatusCode.OK });
+        span.end();
+        return { data: invoice.toJSON(), status: 201 };
+      } catch (err) {
+        span.setStatus({ code: SpanStatusCode.ERROR, message: (err as Error).message });
+        span.end();
+        throw err;
+      }
     });
-    if (!client) {
-      return { error: "Client not found", status: 404 };
-    }
-
-    const taxRate = input.taxRate ?? 0;
-    const { lineItems, subtotal, taxAmount, total } = calculateTotals(
-      input.lineItems,
-      taxRate,
-    );
-
-    const invoiceNumber = await generateInvoiceNumber(orgId);
-
-    const invoice = await Invoice.create({
-      orgId: new mongoose.Types.ObjectId(orgId),
-      clientId: new mongoose.Types.ObjectId(input.clientId),
-      invoiceNumber,
-      status: "draft",
-      lineItems,
-      subtotal,
-      taxRate,
-      taxAmount,
-      total,
-      currency: input.currency ?? "USD",
-      dueDate: new Date(input.dueDate),
-      notes: input.notes,
-    });
-
-    return { data: invoice.toJSON(), status: 201 };
   }
 
   static async getById(orgId: string, invoiceId: string) {

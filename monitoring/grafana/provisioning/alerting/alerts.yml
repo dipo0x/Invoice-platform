@@ -1,0 +1,92 @@
+apiVersion: 1
+
+groups:
+  - orgId: 1
+    name: Invoice Platform Alerts
+    folder: Invoice Platform
+    interval: 1m
+    rules:
+      - uid: payment-dlq
+        title: Payment DLQ has failed jobs
+        condition: A
+        data:
+          - refId: A
+            relativeTimeRange:
+              from: 600
+              to: 0
+            datasourceUid: prometheus
+            model:
+              expr: "sum(queue_failed_total{queue=\"payments\"}) > 0"
+        for: 0s
+        labels:
+          severity: critical
+        annotations:
+          summary: "Failed payment jobs detected -- potential revenue loss"
+
+      - uid: payment-failure-rate
+        title: Payment failure rate > 10%
+        condition: A
+        data:
+          - refId: A
+            relativeTimeRange:
+              from: 600
+              to: 0
+            datasourceUid: prometheus
+            model:
+              expr: "sum(rate(payments_processed_total{status=\"failed\"}[5m])) / sum(rate(payments_processed_total[5m])) > 0.1"
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Payment failure rate exceeded 10% over the last 5 minutes"
+
+      - uid: api-p95-latency
+        title: API P95 latency > 2 seconds
+        condition: A
+        data:
+          - refId: A
+            relativeTimeRange:
+              from: 600
+              to: 0
+            datasourceUid: prometheus
+            model:
+              expr: "histogram_quantile(0.95, sum(rate(http_request_duration_seconds_bucket[5m])) by (le)) > 2"
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "API P95 latency has exceeded 2 seconds for 5 minutes"
+
+      - uid: queue-stalled
+        title: Queue processing stopped
+        condition: A
+        data:
+          - refId: A
+            relativeTimeRange:
+              from: 600
+              to: 0
+            datasourceUid: prometheus
+            model:
+              expr: "sum(rate(queue_job_duration_seconds_count[5m])) == 0"
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "No queue jobs have been processed in 5 minutes -- workers may have crashed"
+
+      - uid: circuit-breaker-open
+        title: Circuit breaker opened
+        condition: A
+        data:
+          - refId: A
+            relativeTimeRange:
+              from: 600
+              to: 0
+            datasourceUid: prometheus
+            model:
+              expr: "circuit_breaker_state == 1"
+        for: 0s
+        labels:
+          severity: critical
+        annotations:
+          summary: "Circuit breaker opened on {{ $labels.service }} -- external service is down"

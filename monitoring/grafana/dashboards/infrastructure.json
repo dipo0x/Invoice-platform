@@ -1,0 +1,73 @@
+{
+  "dashboard": {
+    "title": "Infrastructure",
+    "uid": "infrastructure",
+    "tags": ["invoice-platform"],
+    "timezone": "browser",
+    "refresh": "10s",
+    "time": { "from": "now-1h", "to": "now" },
+    "panels": [
+      {
+        "title": "Node.js Heap Used",
+        "type": "timeseries",
+        "gridPos": { "h": 8, "w": 12, "x": 0, "y": 0 },
+        "targets": [
+          {
+            "expr": "nodejs_heap_size_used_bytes",
+            "legendFormat": "Heap Used"
+          },
+          {
+            "expr": "nodejs_heap_size_total_bytes",
+            "legendFormat": "Heap Total"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": { "unit": "bytes" }
+        }
+      },
+      {
+        "title": "Event Loop Lag (P95)",
+        "type": "timeseries",
+        "gridPos": { "h": 8, "w": 12, "x": 12, "y": 0 },
+        "targets": [
+          {
+            "expr": "nodejs_eventloop_lag_p95_seconds",
+            "legendFormat": "P95 Lag"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": { "unit": "s" }
+        }
+      },
+      {
+        "title": "Active Handles & Requests",
+        "type": "timeseries",
+        "gridPos": { "h": 8, "w": 12, "x": 0, "y": 8 },
+        "targets": [
+          {
+            "expr": "nodejs_active_handles_total",
+            "legendFormat": "Active Handles"
+          },
+          {
+            "expr": "nodejs_active_requests_total",
+            "legendFormat": "Active Requests"
+          }
+        ]
+      },
+      {
+        "title": "Process CPU Usage",
+        "type": "timeseries",
+        "gridPos": { "h": 8, "w": 12, "x": 12, "y": 8 },
+        "targets": [
+          {
+            "expr": "rate(process_cpu_seconds_total[1m])",
+            "legendFormat": "CPU seconds/s"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": { "unit": "percentunit" }
+        }
+      }
+    ]
+  }
+}

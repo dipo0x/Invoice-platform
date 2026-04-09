@@ -1,9 +1,11 @@
 import type { FastifyInstance, FastifyRequest, FastifyReply } from "fastify";
+import { SpanStatusCode } from "@opentelemetry/api";
 import { stripe } from "../../config/stripe.config.js";
 import { config } from "../../config/index.config.js";
 import { redis } from "../../config/redis.config.js";
 import { PaymentService } from "./payment.service.js";
 import { logger } from "../../observability/logger.js";
+import { tracer } from "../../observability/tracer.js";
 
 const STRIPE_EVENT_TTL = 172_800; // 48 hours
 
@@ -42,17 +44,34 @@ export async function stripeWebhookRoute(fastify: FastifyInstance): Promise<void
 
       logger.info({ type: event.type, id: event.id }, "Stripe webhook received");
 
-      // Deduplicate: Stripe guarantees at-least-once delivery
-      const dedupeKey = `stripe:event:${event.id}`;
-      const isNew = await redis.setNx(dedupeKey, "1", STRIPE_EVENT_TTL);
-      if (!isNew) {
-        logger.info({ eventId: event.id }, "Duplicate Stripe event ignored");
-        return reply.status(200).send({ received: true });
-      }
+      return tracer.startActiveSpan("stripe.webhook", async (span) => {
+        span.setAttributes({
+          "stripe.event.type": event.type,
+          "stripe.event.id": event.id,
+        });
 
-      await PaymentService.handleWebhookEvent(event);
+        try {
+          // Deduplicate: Stripe guarantees at-least-once delivery
+          const dedupeKey = `stripe:event:${event.id}`;
+          const isNew = await redis.setNx(dedupeKey, "1", STRIPE_EVENT_TTL);
+          if (!isNew) {
+            span.addEvent("stripe.event.deduplicated");
+            logger.info({ eventId: event.id }, "Duplicate Stripe event ignored");
+            span.end();
+            return reply.status(200).send({ received: true });
+          }
 
-      return reply.status(200).send({ received: true });
+          await PaymentService.handleWebhookEvent(event);
+
+          span.setStatus({ code: SpanStatusCode.OK });
+          span.end();
+          return reply.status(200).send({ received: true });
+        } catch (err) {
+          span.setStatus({ code: SpanStatusCode.ERROR, message: (err as Error).message });
+          span.end();
+          throw err;
+        }
+      });
     },
   );
 }

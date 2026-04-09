@@ -1,4 +1,5 @@
 import { logger } from "../observability/logger.js";
+import { circuitBreakerState } from "../observability/metrics.js";
 
 export enum CircuitState {
   CLOSED = "CLOSED",
@@ -97,6 +98,9 @@ export class CircuitBreaker {
         "Circuit breaker state transition",
       );
       this.state = newState;
+
+      const stateValue = newState === CircuitState.CLOSED ? 0 : newState === CircuitState.OPEN ? 1 : 2;
+      circuitBreakerState.set({ service: this.options.name }, stateValue);
     }
   }
 }

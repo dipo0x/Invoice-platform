@@ -1,3 +1,4 @@
+import "./observability/tracing.js";
 import { config } from "./config/index.config.js";
 import { database } from "./config/database.config.js";
 import { redis } from "./config/redis.config.js";

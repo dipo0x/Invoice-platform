@@ -1,0 +1,122 @@
+{
+  "dashboard": {
+    "title": "Business Metrics",
+    "uid": "business-metrics",
+    "tags": ["invoice-platform"],
+    "timezone": "browser",
+    "refresh": "30s",
+    "time": { "from": "now-24h", "to": "now" },
+    "panels": [
+      {
+        "title": "Invoices Created / day",
+        "type": "stat",
+        "gridPos": { "h": 6, "w": 6, "x": 0, "y": 0 },
+        "targets": [
+          {
+            "expr": "sum(increase(invoices_created_total[24h]))",
+            "legendFormat": "Total"
+          }
+        ]
+      },
+      {
+        "title": "Payments Succeeded / day",
+        "type": "stat",
+        "gridPos": { "h": 6, "w": 6, "x": 6, "y": 0 },
+        "targets": [
+          {
+            "expr": "sum(increase(payments_processed_total{status=\"succeeded\"}[24h]))",
+            "legendFormat": "Succeeded"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "color": { "mode": "fixed", "fixedColor": "green" }
+          }
+        }
+      },
+      {
+        "title": "Payments Failed / day",
+        "type": "stat",
+        "gridPos": { "h": 6, "w": 6, "x": 12, "y": 0 },
+        "targets": [
+          {
+            "expr": "sum(increase(payments_processed_total{status=\"failed\"}[24h]))",
+            "legendFormat": "Failed"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "color": { "mode": "fixed", "fixedColor": "red" }
+          }
+        }
+      },
+      {
+        "title": "Payment Success Rate",
+        "type": "gauge",
+        "gridPos": { "h": 6, "w": 6, "x": 18, "y": 0 },
+        "targets": [
+          {
+            "expr": "sum(rate(payments_processed_total{status=\"succeeded\"}[24h])) / sum(rate(payments_processed_total[24h])) * 100",
+            "legendFormat": "Success %"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "percent",
+            "min": 0,
+            "max": 100,
+            "thresholds": {
+              "steps": [
+                { "color": "red", "value": null },
+                { "color": "yellow", "value": 90 },
+                { "color": "green", "value": 95 }
+              ]
+            }
+          }
+        }
+      },
+      {
+        "title": "Invoices Created Over Time",
+        "type": "timeseries",
+        "gridPos": { "h": 8, "w": 12, "x": 0, "y": 6 },
+        "targets": [
+          {
+            "expr": "sum(rate(invoices_created_total[5m])) by (org_id) * 60",
+            "legendFormat": "org: {{org_id}}"
+          }
+        ]
+      },
+      {
+        "title": "Payments Over Time",
+        "type": "timeseries",
+        "gridPos": { "h": 8, "w": 12, "x": 12, "y": 6 },
+        "targets": [
+          {
+            "expr": "sum(rate(payments_processed_total[5m])) by (status) * 60",
+            "legendFormat": "{{status}}"
+          }
+        ]
+      },
+      {
+        "title": "Circuit Breaker States",
+        "type": "stat",
+        "gridPos": { "h": 6, "w": 24, "x": 0, "y": 14 },
+        "targets": [
+          {
+            "expr": "circuit_breaker_state",
+            "legendFormat": "{{service}}"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "mappings": [
+              { "type": "value", "options": { "0": { "text": "CLOSED", "color": "green" } } },
+              { "type": "value", "options": { "1": { "text": "OPEN", "color": "red" } } },
+              { "type": "value", "options": { "2": { "text": "HALF_OPEN", "color": "yellow" } } }
+            ]
+          }
+        }
+      }
+    ]
+  }
+}

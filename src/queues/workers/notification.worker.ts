@@ -3,6 +3,7 @@ import { bullRedis } from "../connection.js";
 import { resend } from "../../config/resend.config.js";
 import { config } from "../../config/index.config.js";
 import { logger } from "../../observability/logger.js";
+import { queueJobDuration, queueFailedTotal } from "../../observability/metrics.js";
 import { emailCircuitBreaker } from "../../lib/circuitBreaker.js";
 import {
   QueueName,
@@ -122,10 +123,19 @@ export function createNotificationWorker(): Worker<NotificationJobData> {
   );
 
   worker.on("completed", (job) => {
+    if (job.processedOn && job.finishedOn) {
+      queueJobDuration.observe(
+        { queue: "notifications", job_type: job.data.type },
+        (job.finishedOn - job.processedOn) / 1000,
+      );
+    }
     logger.info({ jobId: job.id, type: job.data.type }, "Notification job completed");
   });
 
   worker.on("failed", (job, err) => {
+    if (job) {
+      queueFailedTotal.inc({ queue: "notifications", job_type: job.data.type });
+    }
     logger.error({ jobId: job?.id, type: job?.data.type, err: err.message }, "Notification job failed");
   });
 

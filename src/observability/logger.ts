@@ -1,6 +1,31 @@
+import { createRequire } from "node:module";
 import pino from "pino";
 
-const isProduction = process.env["NODE_ENV"] === "production";
+function hasPinoPretty(): boolean {
+  try {
+    const require = createRequire(import.meta.url);
+    require.resolve("pino-pretty");
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+const usePretty =
+  process.env["NODE_ENV"] !== "production" && hasPinoPretty();
+
+const prettyTransport = usePretty
+  ? {
+      transport: {
+        target: "pino-pretty",
+        options: {
+          colorize: true,
+          translateTime: "SYS:standard",
+          ignore: "pid,hostname",
+        },
+      },
+    }
+  : {};
 
 export const logger = pino({
   level: process.env["LOG_LEVEL"] ?? "info",
@@ -15,18 +40,7 @@ export const logger = pino({
     ],
     censor: "[REDACTED]",
   },
-  ...(isProduction
-    ? {}
-    : {
-        transport: {
-          target: "pino-pretty",
-          options: {
-            colorize: true,
-            translateTime: "SYS:standard",
-            ignore: "pid,hostname",
-          },
-        },
-      }),
+  ...prettyTransport,
 });
 
 export const fastifyLoggerConfig = {
@@ -43,17 +57,6 @@ export const fastifyLoggerConfig = {
       ],
       censor: "[REDACTED]",
     },
-    ...(isProduction
-      ? {}
-      : {
-          transport: {
-            target: "pino-pretty",
-            options: {
-              colorize: true,
-              translateTime: "SYS:standard",
-              ignore: "pid,hostname",
-            },
-          },
-        }),
+    ...prettyTransport,
   },
 };

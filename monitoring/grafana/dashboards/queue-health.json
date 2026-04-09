@@ -1,0 +1,70 @@
+{
+  "dashboard": {
+    "title": "Queue Health",
+    "uid": "queue-health",
+    "tags": ["invoice-platform"],
+    "timezone": "browser",
+    "refresh": "10s",
+    "time": { "from": "now-1h", "to": "now" },
+    "panels": [
+      {
+        "title": "Jobs Processed / min",
+        "type": "timeseries",
+        "gridPos": { "h": 8, "w": 12, "x": 0, "y": 0 },
+        "targets": [
+          {
+            "expr": "sum(rate(queue_job_duration_seconds_count[1m])) by (queue) * 60",
+            "legendFormat": "{{queue}}"
+          }
+        ]
+      },
+      {
+        "title": "Job Failure Rate",
+        "type": "timeseries",
+        "gridPos": { "h": 8, "w": 12, "x": 12, "y": 0 },
+        "targets": [
+          {
+            "expr": "sum(rate(queue_failed_total[5m])) by (queue)",
+            "legendFormat": "{{queue}}"
+          }
+        ]
+      },
+      {
+        "title": "Queue Depth (waiting jobs)",
+        "type": "timeseries",
+        "gridPos": { "h": 8, "w": 12, "x": 0, "y": 8 },
+        "targets": [
+          {
+            "expr": "queue_depth",
+            "legendFormat": "{{queue}}"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "thresholds": {
+              "steps": [
+                { "color": "green", "value": null },
+                { "color": "yellow", "value": 100 },
+                { "color": "red", "value": 1000 }
+              ]
+            }
+          }
+        }
+      },
+      {
+        "title": "Avg Job Processing Time",
+        "type": "timeseries",
+        "gridPos": { "h": 8, "w": 12, "x": 12, "y": 8 },
+        "targets": [
+          {
+            "expr": "rate(queue_job_duration_seconds_sum[5m]) / rate(queue_job_duration_seconds_count[5m])",
+            "legendFormat": "{{queue}} - {{job_type}}"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": { "unit": "s" }
+        }
+      }
+    ]
+  }
+}

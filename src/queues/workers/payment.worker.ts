@@ -2,6 +2,7 @@ import { Worker } from "bullmq";
 import { bullRedis } from "../connection.js";
 import { stripe } from "../../config/stripe.config.js";
 import { logger } from "../../observability/logger.js";
+import { queueJobDuration, queueFailedTotal } from "../../observability/metrics.js";
 import { stripeCircuitBreaker } from "../../lib/circuitBreaker.js";
 import { Payment } from "../../modules/payment/payment.model.js";
 import { Invoice } from "../../modules/invoice/invoice.model.js";
@@ -198,10 +199,19 @@ export function createPaymentWorker(): Worker<PaymentJobData> {
   );
 
   worker.on("completed", (job) => {
+    if (job.processedOn && job.finishedOn) {
+      queueJobDuration.observe(
+        { queue: "payments", job_type: job.data.type },
+        (job.finishedOn - job.processedOn) / 1000,
+      );
+    }
     logger.info({ jobId: job.id, type: job.data.type }, "Payment job completed");
   });
 
   worker.on("failed", (job, err) => {
+    if (job) {
+      queueFailedTotal.inc({ queue: "payments", job_type: job.data.type });
+    }
     logger.error({ jobId: job?.id, type: job?.data.type, err: err.message }, "Payment job failed");
   });
 

@@ -16,6 +16,7 @@ import { paymentRoutes } from "./modules/payment/payment.route.js";
 import { stripeWebhookRoute } from "./modules/payment/stripe-webhook.route.js";
 import { webhookSubscriptionRoutes } from "./modules/webhook-subscription/webhook-subscription.route.js";
 import { bullBoardPlugin } from "./plugins/bullBoard.plugin.js";
+import { metricsPlugin } from "./observability/metrics.js";
 
 export function buildApp() {
   const app = Fastify({
@@ -64,6 +65,9 @@ export function buildApp() {
 
   // Queue dashboard
   app.register(bullBoardPlugin);
+
+  // Prometheus metrics
+  app.register(metricsPlugin);
 
   // Root route
   app.get("/", async () => {

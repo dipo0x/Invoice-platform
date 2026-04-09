@@ -37,7 +37,7 @@ A multi-tenant SaaS API for creating invoices, collecting payments via Stripe, a
 ### Setup
 
 ```bash
-git clone https://github.com/dipo0x/invoice-platform>
+git clone https://github.com/dipo0x/invoice-platform
 cd invoice-platform
 yarn install
 cp .env.example .env   # edit with your values

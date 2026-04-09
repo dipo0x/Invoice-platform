@@ -1,6 +1,6 @@
 # Invoice Platform
 
-Permit me to write this with claude :) 
+<!-- Permit me to write this with claude :)  -->
 
 
 A multi-tenant SaaS API for creating invoices, collecting payments via Stripe, automating recurring billing, and delivering webhook notifications -- built with reliability patterns used by Stripe, GitHub, and Twilio.
@@ -18,6 +18,9 @@ A multi-tenant SaaS API for creating invoices, collecting payments via Stripe, a
 | Email | Resend |
 | Validation | Zod |
 | Auth | JWT (access + refresh tokens) |
+| Tracing | OpenTelemetry, Jaeger |
+| Metrics | Prometheus, prom-client |
+| Dashboards | Grafana |
 | Testing | Vitest |
 | CI/CD | GitHub Actions |
 
@@ -105,6 +108,10 @@ External Services:
   +-- Stripe (payments)
   +-- Resend (transactional email)
   +-- Customer webhook endpoints
+
+Observability:
+  +-- OpenTelemetry SDK --> Jaeger (distributed tracing)
+  +-- /metrics endpoint --> Prometheus --> Grafana (dashboards + alerting)
 ```
 
 ## Modules
@@ -200,6 +207,56 @@ If Stripe fails (Step 2), the Payment record is marked as `"failed"` -- no ghost
 
 **Files:** `src/lib/paymentSaga.ts`, `src/queues/workers/payment.worker.ts` (reconcile handler)
 
+## Observability
+
+Full observability stack with distributed tracing, metrics, dashboards, and alerting. See [OBSERVABILITY.md](OBSERVABILITY.md) for the complete reference.
+
+### OpenTelemetry Tracing
+
+Auto-instruments HTTP, MongoDB, and Redis operations with zero code changes. Custom business spans are added for payment checkout (`payment.checkout`), Stripe webhook processing (`stripe.webhook`), and invoice creation (`invoice.create`). Traces are exported via OTLP to Jaeger.
+
+### Prometheus Metrics
+
+`GET /metrics` exposes metrics scraped by Prometheus every 15 seconds:
+
+| Category | Metrics |
+|----------|---------|
+| HTTP | `http_request_duration_seconds` (histogram), `http_requests_total` (counter) |
+| Business | `invoices_created_total`, `payments_processed_total` |
+| Queues | `queue_job_duration_seconds`, `queue_depth`, `queue_failed_total` |
+| External | `stripe_api_duration_seconds`, `circuit_breaker_state` |
+| Node.js | Heap size, event loop lag, CPU usage (via `prom-client` defaults) |
+
+### Grafana Dashboards
+
+Four auto-provisioned dashboards available at `http://localhost:3001` (admin/admin):
+
+- **API Health** -- request rate, error rate, P50/P95/P99 latency, slowest endpoints
+- **Queue Health** -- job throughput, failure rate, queue depth, processing time
+- **Business Metrics** -- invoices created, payment success/failure rate, circuit breaker states
+- **Infrastructure** -- heap memory, event loop lag, CPU usage, active handles
+
+### Alerting
+
+Five alert rules auto-provisioned into Grafana:
+
+| Alert | Severity |
+|-------|----------|
+| Payment DLQ has failed jobs | Critical |
+| Payment failure rate > 10% | Critical |
+| API P95 latency > 2 seconds | Warning |
+| Queue processing stopped | Critical |
+| Circuit breaker opened | Critical |
+
+### Observability URLs
+
+| Service | URL |
+|---------|-----|
+| Prometheus | http://localhost:9090 |
+| Grafana | http://localhost:3001 |
+| Jaeger | http://localhost:16686 |
+| Metrics | http://localhost:3000/metrics |
+
 ## Project Structure
 
 ```
@@ -224,8 +281,14 @@ src/
 +-- middlewares/                     # auth, tenant, RBAC, audit, idempotency
 +-- lib/                             # circuitBreaker, idempotencyStore, paymentSaga
 +-- plugins/                         # health, rateLimiter, bullBoard
-+-- observability/                   # Pino logger
++-- observability/                   # OpenTelemetry tracing, Prometheus metrics, Pino logger
 +-- types/                           # Shared TypeScript types
+monitoring/
++-- prometheus/
+|   +-- prometheus.yml               # Scrape config (api:3000/metrics every 15s)
++-- grafana/
+    +-- provisioning/                # Auto-provisioned datasources, dashboards, alerts
+    +-- dashboards/                  # JSON dashboard definitions (4 dashboards)
 tests/
 +-- integration/                     # API-level tests (auth, invoice, payment, etc.)
 +-- unit/                            # circuitBreaker, paymentSaga, schema validation

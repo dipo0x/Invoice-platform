@@ -22,6 +22,7 @@ A multi-tenant SaaS API for creating invoices, collecting payments via Stripe, a
 | Metrics | Prometheus, prom-client |
 | Dashboards | Grafana |
 | Testing | Vitest |
+| Load Testing | k6 |
 | CI/CD | GitHub Actions |
 
 ## Getting Started
@@ -69,6 +70,30 @@ docker compose up          # full stack with Docker
 yarn test                  # run all tests
 yarn test:watch            # watch mode
 yarn typecheck             # type checking only
+```
+
+## Load Testing
+
+Load tests use [k6](https://grafana.com/docs/k6/) to validate performance under realistic traffic patterns. Tests live in the `k6/` directory.
+
+### Prerequisites
+
+Install k6: `brew install k6` (macOS) or see the [k6 installation docs](https://grafana.com/docs/k6/latest/set-up/install-k6/).
+
+### Scenarios
+
+| Script | What it tests | VU ramp | Thresholds |
+|--------|--------------|---------|------------|
+| `auth-load.js` | Register, login, token refresh | 0 -> 100 VUs over 2.5m | P95 login < 300ms, P95 register < 500ms, error rate < 5% |
+| `invoice-load.js` | Create, list, paginate, get invoices | 0 -> 200 VUs over 3m | P95 create < 800ms, P95 list < 500ms, P95 get < 300ms |
+| `payment-stress.js` | Checkout flow with idempotency retries | 0 -> 50 VUs over 2.5m | P95 payment < 1500ms, error rate < 10% |
+| `mixed-scenario.js` | 60% reads / 30% writes / 10% payments | 100 VUs for 3m | P95 read < 500ms, P95 write < 1s, P95 payment < 2s |
+
+### Run
+
+```bash
+k6 run k6/auth-load.js                          # single scenario
+k6 run --env BASE_URL=http://staging:3000 k6/mixed-scenario.js  # custom target
 ```
 
 ## Architecture
@@ -289,6 +314,11 @@ monitoring/
 +-- grafana/
     +-- provisioning/                # Auto-provisioned datasources, dashboards, alerts
     +-- dashboards/                  # JSON dashboard definitions (4 dashboards)
+k6/
++-- auth-load.js                     # Auth endpoint load test
++-- invoice-load.js                  # Invoice CRUD load test
++-- payment-stress.js                # Payment flow stress test with idempotency
++-- mixed-scenario.js                # Mixed read/write/payment traffic simulation
 tests/
 +-- integration/                     # API-level tests (auth, invoice, payment, etc.)
 +-- unit/                            # circuitBreaker, paymentSaga, schema validation

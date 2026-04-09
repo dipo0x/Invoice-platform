@@ -3,7 +3,7 @@
 <!-- Permit me to write this with claude :)  -->
 
 
-A multi-tenant SaaS API for creating invoices, collecting payments via Stripe, automating recurring billing, and delivering webhook notifications -- built with reliability patterns used by Stripe, GitHub, and Twilio.
+A multi-tenant SaaS API for creating invoices, collecting payments via Stripe, automating recurring billing, and delivering webhook notifications, built with reliability patterns used by Stripe, GitHub, and Twilio.
 
 ## Tech Stack
 

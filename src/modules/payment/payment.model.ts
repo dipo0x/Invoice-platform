@@ -8,6 +8,8 @@ export type PaymentStatus = "pending" | "succeeded" | "failed" | "refunded";
   schemaOptions: { timestamps: true, collection: "payments" },
 })
 @index({ orgId: 1, invoiceId: 1 })
+@index({ orgId: 1, status: 1, createdAt: -1 })
+@index({ orgId: 1, createdAt: -1 })
 @index({ stripePaymentIntentId: 1 })
 class PaymentClass {
   @prop({ required: true, ref: () => OrganizationClass })

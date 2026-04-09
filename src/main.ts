@@ -1,6 +1,6 @@
 import "./observability/tracing.js";
 import { config } from "./config/index.config.js";
-import { database } from "./config/database.config.js";
+import { database, readReplica } from "./config/database.config.js";
 import { redis } from "./config/redis.config.js";
 import { bullRedis } from "./queues/connection.js";
 import { startAllWorkers, stopAllWorkers } from "./queues/workers/index.js";
@@ -15,6 +15,7 @@ async function main(): Promise<void> {
 
   // Connect to external services
   await database.connect();
+  await readReplica.connect();
   await redis.connect();
   await bullRedis.connect();
   await startAllWorkers();
@@ -55,6 +56,9 @@ async function main(): Promise<void> {
 
       logger.info("Closing Redis");
       await redis.disconnect();
+
+      logger.info("Closing MongoDB read replica");
+      await readReplica.disconnect();
 
       logger.info("Closing MongoDB");
       await database.disconnect();

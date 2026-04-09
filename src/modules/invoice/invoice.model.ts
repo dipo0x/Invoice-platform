@@ -29,7 +29,7 @@ class LineItem {
   schemaOptions: { timestamps: true, collection: "invoices" },
   options: { allowMixed: Severity.ALLOW },
 })
-@index({ orgId: 1, status: 1 })
+@index({ orgId: 1, status: 1, createdAt: -1 })
 @index({ orgId: 1, clientId: 1 })
 @index({ orgId: 1, createdAt: -1 })
 @index({ orgId: 1, invoiceNumber: 1 }, { unique: true })

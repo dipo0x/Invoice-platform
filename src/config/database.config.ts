@@ -52,4 +52,49 @@ export class Database {
   }
 }
 
+/**
+ * Read replica connection for analytics and reporting queries.
+ * Uses secondaryPreferred read preference so reads go to secondaries when available,
+ * falling back to primary when no secondaries exist (e.g. local dev).
+ */
+class ReadReplicaConnection {
+  private connection: mongoose.Connection | null = null;
+
+  async connect(): Promise<void> {
+    const uri = config.MONGODB_READ_REPLICA_URI ?? config.MONGODB_URI;
+
+    this.connection = mongoose.createConnection(uri, {
+      maxPoolSize: 5,
+      serverSelectionTimeoutMS: 5000,
+      socketTimeoutMS: 60000,
+      readPreference: "secondaryPreferred",
+    });
+
+    this.connection.on("connected", () => {
+      logger.info("MongoDB read replica connected");
+    });
+
+    this.connection.on("error", (err) => {
+      logger.error({ err }, "MongoDB read replica connection error");
+    });
+
+    await this.connection.asPromise();
+  }
+
+  async disconnect(): Promise<void> {
+    if (this.connection) {
+      await this.connection.close();
+      logger.info("MongoDB read replica connection closed");
+    }
+  }
+
+  getConnection(): mongoose.Connection {
+    if (!this.connection) {
+      throw new Error("Read replica connection not initialized. Call connect() first.");
+    }
+    return this.connection;
+  }
+}
+
 export const database = new Database(config.MONGODB_URI);
+export const readReplica = new ReadReplicaConnection();

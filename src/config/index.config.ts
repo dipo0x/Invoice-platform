@@ -7,6 +7,7 @@ const envSchema = z.object({
     .enum(["development", "production", "test"])
     .default("development"),
   MONGODB_URI: z.string().min(1, "MONGODB_URI is required"),
+  MONGODB_READ_REPLICA_URI: z.string().optional(),
   REDIS_URL: z.string().min(1, "REDIS_URL is required"),
   JWT_SECRET: z.string().min(1, "JWT_SECRET is required"),
   JWT_REFRESH_SECRET: z.string().min(1, "JWT_REFRESH_SECRET is required"),

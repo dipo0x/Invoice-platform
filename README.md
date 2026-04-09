@@ -170,6 +170,9 @@ Interactive API docs are auto-generated from Zod schemas and served via Swagger 
 
 All endpoints are grouped by module: Auth, Organizations, Clients, Invoices, Recurring Invoices, Payments, Webhook Subscriptions, and Analytics. JWT authentication is built in -- click "Authorize" in the Swagger UI, paste your access token, and all subsequent requests include the `Bearer` header automatically.
 
+<img width="1504" height="863" alt="Screenshot 2026-04-09 at 9 28 41 PM" src="https://github.com/user-attachments/assets/08da5b25-e9f3-480d-aaf7-213147d3b82c" />
+
+
 ## Multi-Tenancy
 
 Every request after login includes an `x-org-id` header. The tenant context middleware validates the user is a member of that org and attaches their role. All database queries are scoped to the org -- a user in Org A can never see Org B's data.

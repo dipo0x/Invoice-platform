@@ -1,6 +1,7 @@
 import { z } from "zod";
 
 export const registerSchema = {
+  tags: ["Auth"],
   body: z.object({
     email: z.string().email("Invalid email format"),
     password: z
@@ -16,6 +17,7 @@ export const registerSchema = {
 };
 
 export const loginSchema = {
+  tags: ["Auth"],
   body: z.object({
     email: z.string().email("Invalid email format"),
     password: z.string().min(1, "Password is required"),
@@ -23,6 +25,7 @@ export const loginSchema = {
 };
 
 export const refreshSchema = {
+  tags: ["Auth"],
   body: z.object({
     refreshToken: z.string().min(1, "Refresh token is required"),
   }),

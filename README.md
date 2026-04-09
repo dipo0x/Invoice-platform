@@ -21,6 +21,7 @@ A multi-tenant SaaS API for creating invoices, collecting payments via Stripe, a
 | Tracing | OpenTelemetry, Jaeger |
 | Metrics | Prometheus, prom-client |
 | Dashboards | Grafana |
+| API Docs | Swagger (OpenAPI 3.0) |
 | Testing | Vitest |
 | Load Testing | k6 |
 | CI/CD | GitHub Actions |
@@ -157,6 +158,17 @@ Observability:
 | **Payment** | `/v1/invoices/:id/pay`, `/v1/payments/*` | Stripe checkout, refunds, partial refunds |
 | **Webhook Subscription** | `/v1/webhook-subscriptions/*` | Subscribe to platform events |
 | **Analytics** | `/v1/analytics/*` | Revenue and invoice reporting |
+
+## API Documentation
+
+Interactive API docs are auto-generated from Zod schemas and served via Swagger UI.
+
+| URL | Description |
+|-----|-------------|
+| `/docs` | Swagger UI -- browse and try all endpoints |
+| `/docs/json` | Raw OpenAPI 3.0 spec (JSON) |
+
+All endpoints are grouped by module: Auth, Organizations, Clients, Invoices, Recurring Invoices, Payments, Webhook Subscriptions, and Analytics. JWT authentication is built in -- click "Authorize" in the Swagger UI, paste your access token, and all subsequent requests include the `Bearer` header automatically.
 
 ## Multi-Tenancy
 
@@ -314,7 +326,7 @@ src/
 |   +-- jobs/                        # Job dispatchers
 +-- middlewares/                     # auth, tenant, RBAC, audit, idempotency
 +-- lib/                             # circuitBreaker, idempotencyStore, paymentSaga
-+-- plugins/                         # health, rateLimiter, bullBoard
++-- plugins/                         # health, rateLimiter, bullBoard, swagger
 +-- observability/                   # OpenTelemetry tracing, Prometheus metrics, Pino logger
 +-- types/                           # Shared TypeScript types
 monitoring/

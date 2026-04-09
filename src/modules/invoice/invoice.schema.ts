@@ -11,6 +11,7 @@ const lineItemSchema = z.object({
 });
 
 export const createInvoiceSchema = {
+  tags: ["Invoices"],
   body: z.object({
     clientId: z.string().min(1, "Client ID is required"),
     lineItems: z.array(lineItemSchema).min(1, "At least one line item is required"),
@@ -22,6 +23,7 @@ export const createInvoiceSchema = {
 };
 
 export const updateInvoiceSchema = {
+  tags: ["Invoices"],
   params: invoiceIdParams,
   body: z.object({
     lineItems: z.array(lineItemSchema).min(1).optional(),
@@ -32,10 +34,12 @@ export const updateInvoiceSchema = {
 };
 
 export const getInvoiceSchema = {
+  tags: ["Invoices"],
   params: invoiceIdParams,
 };
 
 export const listInvoicesSchema = {
+  tags: ["Invoices"],
   querystring: z.object({
     cursor: z.string().optional(),
     limit: z.coerce.number().min(1).max(100).default(20).optional(),
@@ -47,14 +51,17 @@ export const listInvoicesSchema = {
 };
 
 export const sendInvoiceSchema = {
+  tags: ["Invoices"],
   params: invoiceIdParams,
 };
 
 export const cancelInvoiceSchema = {
+  tags: ["Invoices"],
   params: invoiceIdParams,
 };
 
 export const markViewedSchema = {
+  tags: ["Invoices"],
   params: invoiceIdParams,
 };
 

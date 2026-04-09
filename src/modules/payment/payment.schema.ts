@@ -9,18 +9,22 @@ const paymentIdParams = z.object({
 });
 
 export const createPaymentIntentSchema = {
+  tags: ["Payments"],
   params: invoiceIdParams,
 };
 
 export const listPaymentsSchema = {
+  tags: ["Payments"],
   params: invoiceIdParams,
 };
 
 export const refundPaymentSchema = {
+  tags: ["Payments"],
   params: paymentIdParams,
 };
 
 export const partialRefundSchema = {
+  tags: ["Payments"],
   params: paymentIdParams,
   body: z.object({
     amount: z.number().positive("Refund amount must be positive"),

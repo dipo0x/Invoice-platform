@@ -5,6 +5,7 @@ export const orgIdParamsSchema = z.object({
 });
 
 export const createOrgSchema = {
+  tags: ["Organizations"],
   body: z.object({
     name: z
       .string()
@@ -23,10 +24,12 @@ export const createOrgSchema = {
 };
 
 export const getOrgSchema = {
+  tags: ["Organizations"],
   params: orgIdParamsSchema,
 };
 
 export const updateOrgSchema = {
+  tags: ["Organizations"],
   params: orgIdParamsSchema,
   body: z.object({
     name: z.string().min(1).max(100).trim().optional(),
@@ -35,6 +38,7 @@ export const updateOrgSchema = {
 };
 
 export const inviteMemberSchema = {
+  tags: ["Organizations"],
   params: orgIdParamsSchema,
   body: z.object({
     email: z.string().email("Invalid email format"),

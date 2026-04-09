@@ -1,6 +1,7 @@
 import { z } from "zod";
 
 export const revenueReportSchema = {
+  tags: ["Analytics"],
   querystring: z.object({
     from: z.string().datetime().optional(),
     to: z.string().datetime().optional(),
@@ -9,6 +10,7 @@ export const revenueReportSchema = {
 };
 
 export const invoiceReportSchema = {
+  tags: ["Analytics"],
   querystring: z.object({
     from: z.string().datetime().optional(),
     to: z.string().datetime().optional(),

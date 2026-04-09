@@ -5,6 +5,7 @@ const clientIdParams = z.object({
 });
 
 export const createClientSchema = {
+  tags: ["Clients"],
   body: z.object({
     name: z.string().min(1, "Name is required").max(200).trim(),
     email: z.string().email("Invalid email format"),
@@ -16,6 +17,7 @@ export const createClientSchema = {
 };
 
 export const updateClientSchema = {
+  tags: ["Clients"],
   params: clientIdParams,
   body: z.object({
     name: z.string().min(1).max(200).trim().optional(),
@@ -28,6 +30,7 @@ export const updateClientSchema = {
 };
 
 export const getClientSchema = {
+  tags: ["Clients"],
   params: clientIdParams,
   querystring: z.object({
     includeDeleted: z.enum(["true", "false"]).default("false").optional(),
@@ -35,6 +38,7 @@ export const getClientSchema = {
 };
 
 export const listClientsSchema = {
+  tags: ["Clients"],
   querystring: z.object({
     cursor: z.string().optional(),
     limit: z.coerce.number().min(1).max(100).default(20).optional(),
@@ -43,6 +47,7 @@ export const listClientsSchema = {
 };
 
 export const deleteClientSchema = {
+  tags: ["Clients"],
   params: clientIdParams,
 };
 

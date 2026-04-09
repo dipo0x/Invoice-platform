@@ -15,6 +15,7 @@ const webhookEvents = z.enum([
 ]);
 
 export const createWebhookSchema = {
+  tags: ["Webhook Subscriptions"],
   body: z.object({
     url: z.string().url("Invalid URL format"),
     events: z.array(webhookEvents).min(1, "At least one event is required"),
@@ -22,6 +23,7 @@ export const createWebhookSchema = {
 };
 
 export const updateWebhookSchema = {
+  tags: ["Webhook Subscriptions"],
   params: webhookIdParams,
   body: z.object({
     url: z.string().url("Invalid URL format").optional(),
@@ -31,10 +33,12 @@ export const updateWebhookSchema = {
 };
 
 export const getWebhookSchema = {
+  tags: ["Webhook Subscriptions"],
   params: webhookIdParams,
 };
 
 export const listWebhooksSchema = {
+  tags: ["Webhook Subscriptions"],
   querystring: z.object({
     cursor: z.string().optional(),
     limit: z.coerce.number().min(1).max(100).default(20).optional(),
@@ -42,10 +46,12 @@ export const listWebhooksSchema = {
 };
 
 export const deleteWebhookSchema = {
+  tags: ["Webhook Subscriptions"],
   params: webhookIdParams,
 };
 
 export const testWebhookSchema = {
+  tags: ["Webhook Subscriptions"],
   params: webhookIdParams,
 };
 

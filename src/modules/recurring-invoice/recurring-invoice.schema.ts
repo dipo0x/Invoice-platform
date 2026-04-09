@@ -11,6 +11,7 @@ const lineItemSchema = z.object({
 });
 
 export const createRecurringSchema = {
+  tags: ["Recurring Invoices"],
   body: z.object({
     clientId: z.string().min(1, "Client ID is required"),
     lineItems: z.array(lineItemSchema).min(1, "At least one line item is required"),
@@ -24,6 +25,7 @@ export const createRecurringSchema = {
 };
 
 export const updateRecurringSchema = {
+  tags: ["Recurring Invoices"],
   params: recurringIdParams,
   body: z.object({
     lineItems: z.array(lineItemSchema).min(1).optional(),
@@ -35,10 +37,12 @@ export const updateRecurringSchema = {
 };
 
 export const getRecurringSchema = {
+  tags: ["Recurring Invoices"],
   params: recurringIdParams,
 };
 
 export const listRecurringSchema = {
+  tags: ["Recurring Invoices"],
   querystring: z.object({
     cursor: z.string().optional(),
     limit: z.coerce.number().min(1).max(100).default(20).optional(),
@@ -46,9 +50,9 @@ export const listRecurringSchema = {
   }),
 };
 
-export const pauseRecurringSchema = { params: recurringIdParams };
-export const resumeRecurringSchema = { params: recurringIdParams };
-export const cancelRecurringSchema = { params: recurringIdParams };
+export const pauseRecurringSchema = { tags: ["Recurring Invoices"], params: recurringIdParams };
+export const resumeRecurringSchema = { tags: ["Recurring Invoices"], params: recurringIdParams };
+export const cancelRecurringSchema = { tags: ["Recurring Invoices"], params: recurringIdParams };
 
 export type CreateRecurringBody = z.infer<typeof createRecurringSchema.body>;
 export type UpdateRecurringBody = z.infer<typeof updateRecurringSchema.body>;

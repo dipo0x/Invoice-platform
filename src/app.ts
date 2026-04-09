@@ -16,6 +16,7 @@ import { paymentRoutes } from "./modules/payment/payment.route.js";
 import { stripeWebhookRoute } from "./modules/payment/stripe-webhook.route.js";
 import { webhookSubscriptionRoutes } from "./modules/webhook-subscription/webhook-subscription.route.js";
 import { analyticsRoutes } from "./modules/analytics/analytics.route.js";
+import { swaggerPlugin } from "./plugins/swagger.plugin.js";
 import { bullBoardPlugin } from "./plugins/bullBoard.plugin.js";
 import { metricsPlugin } from "./observability/metrics.js";
 
@@ -51,6 +52,7 @@ export function buildApp() {
   );
 
   // Plugins
+  app.register(swaggerPlugin);
   app.register(healthPlugin);
   app.register(rateLimiterPlugin);
 

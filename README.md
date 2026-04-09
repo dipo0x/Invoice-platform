@@ -64,6 +64,9 @@ yarn dev                   # development (watch mode)
 docker compose up          # full stack with Docker
 ```
 
+<img width="863" height="884" alt="Screenshot 2026-04-09 at 9 04 05 PM" src="https://github.com/user-attachments/assets/765e8833-0440-4bf2-95d8-b29f664c738f" />
+
+
 ### Test
 
 ```bash
@@ -74,7 +77,7 @@ yarn typecheck             # type checking only
 
 ## Load Testing
 
-Load tests use [k6](https://grafana.com/docs/k6/) to validate performance under realistic traffic patterns. Tests live in the `k6/` directory.
+Load tests use [](https://grafana.com/docs//) to validate performance under realistic traffic patterns. Tests live in the `/` directory.
 
 ### Prerequisites
 
@@ -95,6 +98,9 @@ Install k6: `brew install k6` (macOS) or see the [k6 installation docs](https://
 k6 run k6/auth-load.js                          # single scenario
 k6 run --env BASE_URL=http://staging:3000 k6/mixed-scenario.js  # custom target
 ```
+<img width="692" height="957" alt="Screenshot 2026-04-09 at 8 59 28 PM" src="https://github.com/user-attachments/assets/76307149-af4d-4fa3-9921-4a42b6957c46" />
+
+
 
 ## Architecture
 
@@ -188,6 +194,9 @@ This prevents double charges when a client retries a failed network request.
 ### Stripe Webhook Deduplication
 
 Stripe delivers events at least once -- the same `payment_intent.succeeded` event can arrive multiple times. Before processing, the webhook handler checks Redis for the event ID. If it's been seen before (48h window), it returns 200 immediately without re-processing.
+
+<img width="1512" height="723" alt="Screenshot 2026-04-09 at 9 07 03 PM" src="https://github.com/user-attachments/assets/305c1843-e915-4b61-9ebb-39446d82ce37" />
+
 
 **File:** `src/modules/payment/stripe-webhook.route.ts`
 

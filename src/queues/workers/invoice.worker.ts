@@ -8,6 +8,7 @@ import { Client } from "../../modules/client/client.model.js";
 import { RecurringInvoice } from "../../modules/recurring-invoice/recurring-invoice.model.js";
 import { InvoiceService } from "../../modules/invoice/invoice.service.js";
 import { enqueue, QueueName } from "../registry.js";
+import { queueFailedTotal, queueJobDuration } from "../../observability/metrics.js";
 import type {
   InvoiceJobData,
   GenerateInvoicePdfJob,
@@ -318,10 +319,19 @@ export function createInvoiceWorker(): Worker<InvoiceJobData> {
   );
 
   worker.on("completed", (job) => {
+    if (job.processedOn && job.finishedOn) {
+      queueJobDuration.observe(
+        { queue: "invoices", job_type: job.data.type },
+        (job.finishedOn - job.processedOn) / 1000,
+      );
+    }
     logger.info({ jobId: job.id, type: job.data.type }, "Invoice job completed");
   });
 
   worker.on("failed", (job, err) => {
+    if (job) {
+      queueFailedTotal.inc({ queue: "invoices", job_type: job.data.type });
+    }
     logger.error({ jobId: job?.id, type: job?.data.type, err: err.message }, "Invoice job failed");
   });
 

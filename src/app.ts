@@ -55,6 +55,7 @@ export function buildApp() {
   app.register(swaggerPlugin);
   app.register(healthPlugin);
   app.register(rateLimiterPlugin);
+  app.register(metricsPlugin);
 
   // Routes
   app.register(authRoutes, { prefix: "/v1/auth" });
@@ -69,9 +70,6 @@ export function buildApp() {
 
   // Queue dashboard
   app.register(bullBoardPlugin);
-
-  // Prometheus metrics
-  app.register(metricsPlugin);
 
   // Root route
   app.get("/", async () => {

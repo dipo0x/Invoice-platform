@@ -30,6 +30,8 @@ export class CircuitBreaker {
 
   constructor(options: CircuitBreakerOptions) {
     this.options = options;
+    // Initialize each breaker to CLOSED so Grafana has a series before any transitions.
+    circuitBreakerState.set({ service: this.options.name }, 0);
   }
 
   getState(): CircuitState {

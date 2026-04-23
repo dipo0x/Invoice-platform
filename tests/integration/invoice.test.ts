@@ -182,6 +182,17 @@ describe("Invoice API", () => {
       expect(num1).toMatch(/^INV-\d{4}-\d{4}$/);
       expect(num2).toMatch(/^INV-\d{4}-\d{4}$/);
     });
+
+    it("should create invoices concurrently without duplicate invoice number failures", async () => {
+      const responses = await Promise.all(
+        Array.from({ length: 5 }, () => createInvoice()),
+      );
+
+      expect(responses.every((res) => res.statusCode === 201)).toBe(true);
+
+      const invoiceNumbers = responses.map((res) => res.json().invoiceNumber);
+      expect(new Set(invoiceNumbers).size).toBe(invoiceNumbers.length);
+    });
   });
 
   // ----------------------------------------------------------------

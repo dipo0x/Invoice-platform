@@ -26,14 +26,14 @@
     },
     {
       "id": 2,
-      "title": "Payments Succeeded (24h)",
+      "title": "Payments Succeeded (Total)",
       "type": "stat",
       "gridPos": { "h": 6, "w": 6, "x": 6, "y": 0 },
       "datasource": { "type": "prometheus", "uid": "PBFA97CFB590B2093" },
       "targets": [
         {
           "datasource": { "type": "prometheus", "uid": "PBFA97CFB590B2093" },
-          "expr": "sum(increase(payments_processed_total{status=\"succeeded\"}[24h]))",
+          "expr": "sum(payments_processed_total{status=\"succeeded\"})",
           "legendFormat": "Succeeded"
         }
       ],
@@ -43,14 +43,14 @@
     },
     {
       "id": 3,
-      "title": "Payments Failed (24h)",
+      "title": "Payments Failed (Total)",
       "type": "stat",
       "gridPos": { "h": 6, "w": 6, "x": 12, "y": 0 },
       "datasource": { "type": "prometheus", "uid": "PBFA97CFB590B2093" },
       "targets": [
         {
           "datasource": { "type": "prometheus", "uid": "PBFA97CFB590B2093" },
-          "expr": "sum(increase(payments_processed_total{status=\"failed\"}[24h]))",
+          "expr": "sum(payments_processed_total{status=\"failed\"})",
           "legendFormat": "Failed"
         }
       ],
@@ -60,14 +60,14 @@
     },
     {
       "id": 4,
-      "title": "Payment Success Rate",
+      "title": "Payment Success Rate (Total)",
       "type": "gauge",
       "gridPos": { "h": 6, "w": 6, "x": 18, "y": 0 },
       "datasource": { "type": "prometheus", "uid": "PBFA97CFB590B2093" },
       "targets": [
         {
           "datasource": { "type": "prometheus", "uid": "PBFA97CFB590B2093" },
-          "expr": "sum(rate(payments_processed_total{status=\"succeeded\"}[24h])) / sum(rate(payments_processed_total[24h])) * 100",
+          "expr": "sum(payments_processed_total{status=\"succeeded\"}) / sum(payments_processed_total) * 100",
           "legendFormat": "Success %"
         }
       ],
@@ -103,14 +103,14 @@
     },
     {
       "id": 6,
-      "title": "Payments Over Time",
+      "title": "Payments by Status (Total)",
       "type": "timeseries",
       "gridPos": { "h": 8, "w": 12, "x": 12, "y": 6 },
       "datasource": { "type": "prometheus", "uid": "PBFA97CFB590B2093" },
       "targets": [
         {
           "datasource": { "type": "prometheus", "uid": "PBFA97CFB590B2093" },
-          "expr": "sum(rate(payments_processed_total[5m])) by (status) * 60",
+          "expr": "sum(payments_processed_total) by (status)",
           "legendFormat": "{{status}}"
         }
       ]

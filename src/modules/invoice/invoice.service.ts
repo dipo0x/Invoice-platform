@@ -39,6 +39,27 @@ function calculateTotals(
   return { lineItems: computed, subtotal, taxAmount, total };
 }
 
+const MAX_INVOICE_NUMBER_RETRIES = 10;
+
+function isDuplicateInvoiceNumberError(err: unknown): boolean {
+  const duplicateKeyError = err as {
+    code?: number;
+    keyPattern?: Record<string, unknown>;
+    keyValue?: Record<string, unknown>;
+    message?: string;
+  };
+
+  if (duplicateKeyError.code !== 11000) {
+    return false;
+  }
+
+  return Boolean(
+    duplicateKeyError.keyPattern?.["invoiceNumber"] !== undefined ||
+    duplicateKeyError.keyValue?.["invoiceNumber"] !== undefined ||
+    duplicateKeyError.message?.includes("invoiceNumber"),
+  );
+}
+
 async function generateInvoiceNumber(orgId: string): Promise<string> {
   const year = new Date().getFullYear();
   const count = await Invoice.countDocuments({
@@ -71,23 +92,41 @@ export class InvoiceService {
           input.lineItems,
           taxRate,
         );
+        let invoice;
+        let invoiceNumber = "";
 
-        const invoiceNumber = await generateInvoiceNumber(orgId);
+        for (let attempt = 0; attempt < MAX_INVOICE_NUMBER_RETRIES; attempt += 1) {
+          try {
+            invoiceNumber = await generateInvoiceNumber(orgId);
+            invoice = await Invoice.create({
+              orgId: new mongoose.Types.ObjectId(orgId),
+              clientId: new mongoose.Types.ObjectId(input.clientId),
+              invoiceNumber,
+              status: "draft",
+              lineItems,
+              subtotal,
+              taxRate,
+              taxAmount,
+              total,
+              currency: input.currency ?? "USD",
+              dueDate: new Date(input.dueDate),
+              notes: input.notes,
+            });
+            break;
+          } catch (err) {
+            if (
+              attempt < MAX_INVOICE_NUMBER_RETRIES - 1 &&
+              isDuplicateInvoiceNumberError(err)
+            ) {
+              continue;
+            }
+            throw err;
+          }
+        }
 
-        const invoice = await Invoice.create({
-          orgId: new mongoose.Types.ObjectId(orgId),
-          clientId: new mongoose.Types.ObjectId(input.clientId),
-          invoiceNumber,
-          status: "draft",
-          lineItems,
-          subtotal,
-          taxRate,
-          taxAmount,
-          total,
-          currency: input.currency ?? "USD",
-          dueDate: new Date(input.dueDate),
-          notes: input.notes,
-        });
+        if (!invoice) {
+          throw new Error("Failed to create invoice after retrying duplicate invoice numbers");
+        }
 
         span.setAttributes({
           "invoice.id": String(invoice._id),

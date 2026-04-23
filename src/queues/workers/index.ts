@@ -5,6 +5,7 @@ import { createPaymentWorker } from "./payment.worker.js";
 import { createWebhookWorker } from "./webhook.worker.js";
 import { getQueue, QueueName } from "../registry.js";
 import { logger } from "../../observability/logger.js";
+import { queueDepth } from "../../observability/metrics.js";
 
 // ─── Worker Orchestrator ────────────────────────────────────────────────────
 //
@@ -16,6 +17,23 @@ import { logger } from "../../observability/logger.js";
 // close the queue instances and Redis connection.
 
 const workers: Worker[] = [];
+let queueDepthInterval: NodeJS.Timeout | null = null;
+
+async function recordQueueDepths(): Promise<void> {
+  const queues = [
+    QueueName.NOTIFICATIONS,
+    QueueName.INVOICES,
+    QueueName.PAYMENTS,
+    QueueName.INTEGRATIONS,
+  ] as const;
+
+  await Promise.all(
+    queues.map(async (queueName) => {
+      const waiting = await getQueue(queueName).getWaitingCount();
+      queueDepth.set({ queue: queueName }, waiting);
+    }),
+  );
+}
 
 export async function startAllWorkers(): Promise<void> {
   workers.push(
@@ -47,10 +65,21 @@ export async function startAllWorkers(): Promise<void> {
     { repeat: { pattern: "*/15 * * * *" }, jobId: "scan-recurring-cron" },
   );
 
+  await recordQueueDepths();
+  queueDepthInterval = setInterval(() => {
+    void recordQueueDepths().catch((err: unknown) => {
+      logger.warn({ err }, "Failed to record queue depth metrics");
+    });
+  }, 10_000);
+
   logger.info({ workerCount: workers.length }, "All queue workers started");
 }
 
 export async function stopAllWorkers(): Promise<void> {
+  if (queueDepthInterval) {
+    clearInterval(queueDepthInterval);
+    queueDepthInterval = null;
+  }
   await Promise.all(workers.map((w) => w.close()));
   workers.length = 0;
   logger.info("All queue workers stopped");

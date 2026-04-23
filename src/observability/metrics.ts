@@ -1,4 +1,5 @@
 import client from "prom-client";
+import fp from "fastify-plugin";
 import type { FastifyInstance } from "fastify";
 
 // Use a default registry so all metrics are automatically registered
@@ -74,7 +75,7 @@ export const circuitBreakerState = new client.Gauge({
 
 // ─── Metrics Endpoint Plugin ────────────────────────────────────────────────
 
-export async function metricsPlugin(fastify: FastifyInstance): Promise<void> {
+async function metricsPluginFn(fastify: FastifyInstance): Promise<void> {
   // Track request duration and count
   fastify.addHook("onResponse", (request, reply, done) => {
     // Skip metrics endpoint itself to avoid self-referential noise
@@ -100,5 +101,7 @@ export async function metricsPlugin(fastify: FastifyInstance): Promise<void> {
     return reply.header("Content-Type", register.contentType).send(metrics);
   });
 }
+
+export const metricsPlugin = fp(metricsPluginFn, { name: "metrics" });
 
 export { register };
